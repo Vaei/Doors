@@ -1,0 +1,28 @@
+﻿{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0.0",
+	"FriendlyName": "Doors",
+	"Description": "Its Doors. Just Doors. They open, they close, they're Doors. Net-Predicted Doors. Pair me with Grasp and Vigil for a full experience.",
+	"Category": "Gameplay",
+	"CreatedBy": "Jared Taylor (Vaei)",
+	"CreatedByURL": "https://vaei.github.io/",
+	"DocsURL": "https://github.com/Vaei/Doors/wiki",
+	"MarketplaceURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "Doors",
+			"Type": "Runtime",
+			"LoadingPhase": "PreDefault"
+		},
+		{
+			"Name": "DoorsVisualizer",
+			"Type": "EditorNoCommandlet",
+			"LoadingPhase": "PostEngineInit"
+		}
+	]
+}
