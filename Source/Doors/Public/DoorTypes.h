@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Abilities/GameplayAbilityTargetTypes.h"
+#include "DoorTypes.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogDoors, Log, All);
 
