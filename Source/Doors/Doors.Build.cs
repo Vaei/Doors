@@ -13,7 +13,6 @@ public class Doors : ModuleRules
 			{
 				"Core",
 				"GameplayAbilities",
-				"GameplayTasks",
 			}
 			);
 			
