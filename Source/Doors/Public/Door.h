@@ -7,6 +7,7 @@
 
 #include "Door.generated.h"
 
+class UDoorEditorVisualizer;
 /**
  * Net-Predicted Doors for interaction (interacting)
  * With replication for non-interaction (observed)
@@ -15,6 +16,11 @@ UCLASS()
 class DOORS_API ADoor : public AActor
 {
 	GENERATED_BODY()
+
+public:
+	/** Ties into FDoorVisualizer to draw editor visuals */
+	UPROPERTY()
+	TObjectPtr<UDoorEditorVisualizer> DoorVisualizer;
 	
 protected:
 	// Door State

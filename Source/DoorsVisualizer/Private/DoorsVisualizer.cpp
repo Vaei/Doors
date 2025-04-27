@@ -2,7 +2,7 @@
 
 #include "DoorsVisualizer.h"
 
-#include "Door.h"
+#include "DoorEditorVisualizer.h"
 #include "DoorVisualizer.h"
 #include "UnrealEdGlobals.h"
 #include "Editor/UnrealEdEngine.h"
@@ -11,12 +11,17 @@
 
 void FDoorsVisualizerModule::StartupModule()
 {
-	GUnrealEd->RegisterComponentVisualizer(ADoor::StaticClass()->GetFName(), MakeShareable(new FDoorVisualizer()));
+	GUnrealEd->RegisterComponentVisualizer(UDoorEditorVisualizer::StaticClass()->GetFName(), MakeShareable(new FDoorVisualizer()));
 }
 
 void FDoorsVisualizerModule::ShutdownModule()
 {
-	GUnrealEd->UnregisterComponentVisualizer(ADoor::StaticClass()->GetFName());
+	if (!UObjectInitialized() || IsEngineExitRequested())
+	{
+		return;
+	}
+	
+	GUnrealEd->UnregisterComponentVisualizer(UDoorEditorVisualizer::StaticClass()->GetFName());
 }
 
 #undef LOCTEXT_NAMESPACE
