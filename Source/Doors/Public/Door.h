@@ -29,14 +29,14 @@ protected:
 	 * The current state of the door
 	 * You can change the default state of the door
 	 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Door)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
 	EDoorState DoorState = EDoorState::Closed;
 
 	/**
 	 * The last side the door was interacted from
 	 * You can change the default side of the door
 	 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Door)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
 	EDoorSide DoorSide = EDoorSide::Front;
 	
 	UPROPERTY(ReplicatedUsing=OnRep_DoorState)
@@ -115,11 +115,11 @@ protected:
 	// Door Access
 
 	/** Which side(s) of the door can we interact from */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Door)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
 	EDoorAccess DoorAccess = EDoorAccess::Bidirectional;
 
 	/** What to do if changing door access based on the door state */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Door)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
 	EDoorChangeType DoorAccessChangeType = EDoorChangeType::Wait;
 
 	/** Used if change type is set to Wait */
@@ -131,11 +131,11 @@ protected:
 	bool bHasPendingDoorAccess = false;
 	
 	/** Which ways can the door open */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Door)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
 	EDoorOpenDirection DoorOpenDirection = EDoorOpenDirection::Bidirectional;
 
 	/** What to do if changing door open mode based on the door state */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Door)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
 	EDoorChangeType DoorOpenDirectionChangeType = EDoorChangeType::Wait;
 
 	/** Used if change type is set to Wait */
@@ -150,11 +150,11 @@ protected:
 	 * Which action we prefer to use when opening the door
 	 * We might not always use the preferred motion, e.g. we would only push a door open if we're behind it and it opens outwards
 	 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Door)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
 	EDoorMotion DoorOpenMotion = EDoorMotion::Push;
 
 	/** What to do if changing door access based on the door state */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Door)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
 	EDoorChangeType DoorOpenMotionChangeType = EDoorChangeType::Immediate;
 
 	/** Used if change type is set to Wait */
@@ -212,11 +212,11 @@ public:
 
 protected:
 	/** If false, interaction will be rejected if the client's door side differs from the server's */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Door)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
 	bool bTrustClientDoorSide = true;
 
 	/** If true, the door can be interacted with while in motion, otherwise they must wait for it to finish opening or closing */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Door)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
 	bool bCanInteractWhileInMotion = true;
 
 public:
@@ -225,11 +225,11 @@ public:
 
 public:
 	/** How long to wait before interaction since the door was last interacted with */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Door)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
 	float InteractCooldown = 0.2f;
 
 	/** How long to wait before interaction since the door entered a stationary state after being in motion */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Door)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
 	float StationaryCooldown = 0.3f;
 	
 protected:
