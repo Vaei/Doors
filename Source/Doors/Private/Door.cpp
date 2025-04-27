@@ -3,6 +3,7 @@
 
 #include "Door.h"
 
+#include "DoorEditorVisualizer.h"
 #include "DoorStatics.h"
 #include "Net/UnrealNetwork.h"
 #include "Net/Core/PushModel/PushModel.h"
@@ -19,6 +20,10 @@ ADoor::ADoor(const FObjectInitializer& ObjectInitializer)
 	NetCullDistanceSquared = 25000000.0;  // 5000cm
 	NetDormancy = DORM_Initial;
 	SetReplicates(true);
+
+#if WITH_EDITORONLY_DATA
+	DoorVisualizer = CreateEditorOnlyDefaultSubobject<UDoorEditorVisualizer>(TEXT("DoorVisualizer"));
+#endif
 }
 
 void ADoor::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
