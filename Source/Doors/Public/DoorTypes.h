@@ -19,15 +19,23 @@ enum class EDoorState : uint8
 };
 
 /**
- * Position the current state of the door entered from.
- * This can denote either the side of the door, or the side of the door that the
- * avatar was standing on when the door was interacted with.
+ * Direction the door entered it's current state from.
+ */
+UENUM(BlueprintType)
+enum class EDoorDirection : uint8
+{
+	Outward		UMETA(ToolTip="Outward (to the front of the door / in front of the door)"),
+	Inward		UMETA(ToolTip="Inward (to the back of the door / behind the door)"),
+};
+
+/**
+ * Position of the avatar interacting with the door relative to the door
  */
 UENUM(BlueprintType)
 enum class EDoorSide : uint8
 {
-	Front		UMETA(DisplayName="Front"),
-	Back		UMETA(DisplayName="Back"),
+	Front		UMETA(ToolTip="Avatar was standing in front of the door while interacting"),
+	Back		UMETA(TooLTip="Avatar was standing behind the door while interacting"),
 };
 
 /**
@@ -112,7 +120,7 @@ struct DOORS_API FDoorAbilityTargetData : public FGameplayAbilityTargetData
 	GENERATED_BODY()
 
 	FDoorAbilityTargetData(const EDoorState& InDoorState = EDoorState::Closed,
-		const EDoorSide& InDoorSide = EDoorSide::Front);
+		const EDoorDirection& InDoorDirection = EDoorDirection::Outward);
 
 	UPROPERTY(BlueprintReadOnly, Category=Character)
 	EReplicatedDoorState DoorState;

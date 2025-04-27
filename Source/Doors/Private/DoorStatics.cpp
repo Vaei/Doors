@@ -8,72 +8,72 @@
 #include UE_INLINE_GENERATED_CPP_BY_NAME(DoorStatics)
 
 
-EReplicatedDoorState UDoorStatics::PackDoorState(EDoorState DoorState, EDoorSide DoorSide)
+EReplicatedDoorState UDoorStatics::PackDoorState(EDoorState DoorState, EDoorDirection DoorDirection)
 {
 	switch (DoorState)
 	{
 	case EDoorState::Closed:
-		return DoorSide == EDoorSide::Front ? EReplicatedDoorState::ClosedFront : EReplicatedDoorState::ClosedBack;
+		return DoorDirection == EDoorDirection::Outward ? EReplicatedDoorState::ClosedFront : EReplicatedDoorState::ClosedBack;
 	case EDoorState::Opening:
-		return DoorSide == EDoorSide::Front ? EReplicatedDoorState::OpeningFront : EReplicatedDoorState::OpeningBack;
+		return DoorDirection == EDoorDirection::Outward ? EReplicatedDoorState::OpeningFront : EReplicatedDoorState::OpeningBack;
 	case EDoorState::Open:
-		return DoorSide == EDoorSide::Front ? EReplicatedDoorState::OpenFront : EReplicatedDoorState::OpenBack;
+		return DoorDirection == EDoorDirection::Outward ? EReplicatedDoorState::OpenFront : EReplicatedDoorState::OpenBack;
 	case EDoorState::Closing:
-		return DoorSide == EDoorSide::Front ? EReplicatedDoorState::ClosingFront : EReplicatedDoorState::ClosingBack;
+		return DoorDirection == EDoorDirection::Outward ? EReplicatedDoorState::ClosingFront : EReplicatedDoorState::ClosingBack;
 	default:
 		ensure(false);
 		return EReplicatedDoorState::ClosedFront;
 	}
 }
 
-void UDoorStatics::UnpackDoorState(EReplicatedDoorState DoorStatePacked, EDoorState& OutDoorState, EDoorSide& OutDoorSide)
+void UDoorStatics::UnpackDoorState(EReplicatedDoorState DoorStatePacked, EDoorState& OutDoorState, EDoorDirection& OutDoorDirection)
 {
 	switch (DoorStatePacked)
 	{
 	case EReplicatedDoorState::ClosedFront:
 		OutDoorState = EDoorState::Closed;
-		OutDoorSide = EDoorSide::Front;
+		OutDoorDirection = EDoorDirection::Outward;
 		break;
 	case EReplicatedDoorState::ClosedBack:
 		OutDoorState = EDoorState::Closed;
-		OutDoorSide = EDoorSide::Back;
+		OutDoorDirection = EDoorDirection::Inward;
 		break;
 	case EReplicatedDoorState::OpeningFront:
 		OutDoorState = EDoorState::Opening;
-		OutDoorSide = EDoorSide::Front;
+		OutDoorDirection = EDoorDirection::Outward;
 		break;
 	case EReplicatedDoorState::OpeningBack:
 		OutDoorState = EDoorState::Opening;
-		OutDoorSide = EDoorSide::Back;
+		OutDoorDirection = EDoorDirection::Inward;
 		break;
 	case EReplicatedDoorState::OpenFront:
 		OutDoorState = EDoorState::Open;
-		OutDoorSide = EDoorSide::Front;
+		OutDoorDirection = EDoorDirection::Outward;
 		break;
 	case EReplicatedDoorState::OpenBack:
 		OutDoorState = EDoorState::Open;
-		OutDoorSide = EDoorSide::Back;
+		OutDoorDirection = EDoorDirection::Inward;
 		break;
 	case EReplicatedDoorState::ClosingFront:
 		OutDoorState = EDoorState::Closing;
-		OutDoorSide = EDoorSide::Front;
+		OutDoorDirection = EDoorDirection::Outward;
 		break;
 	case EReplicatedDoorState::ClosingBack:
 		OutDoorState = EDoorState::Closing;
-		OutDoorSide = EDoorSide::Back;
+		OutDoorDirection = EDoorDirection::Inward;
 	default:
 		ensure(false);
 		OutDoorState = EDoorState::Closed;
-		OutDoorSide = EDoorSide::Front;
+		OutDoorDirection = EDoorDirection::Outward;
 		break;
   }
 }
 
-bool UDoorStatics::ProgressDoorState(const ADoor* Door, EDoorState DoorState, EDoorSide AvatarDoorSide,
-	EDoorState& NewDoorState, EDoorSide& NewDoorSide, EDoorMotion& Motion)
+bool UDoorStatics::ProgressDoorState(const ADoor* Door, EDoorState DoorState, EDoorDirection DoorDirection,
+	EDoorSide AvatarDoorSide, EDoorState& NewDoorState, EDoorDirection& NewDoorDirection, EDoorMotion& Motion)
 {
 	NewDoorState = Door->GetDoorState();
-	NewDoorSide = Door->GetDoorSide();
+	NewDoorDirection = Door->GetDoorDirection();
 	
 	// Door is not valid or locked
 	if (!IsValid(Door) || Door->GetDoorOpenDirection() == EDoorOpenDirection::Locked)
@@ -131,8 +131,8 @@ bool UDoorStatics::ProgressDoorState(const ADoor* Door, EDoorState DoorState, ED
 		// We are closing the door
 		NewDoorState = EDoorState::Closing;
 
-		// From which side
-		NewDoorSide = AvatarDoorSide;
+		// @TODO From which side
+		NewDoorDirection = AvatarDoorSide == EDoorSide::Front ? EDoorDirection::Outward : EDoorDirection::Inward;
 		
 		// We will push the door if we're in front of it, and pull it if we're behind it
 		Motion = AvatarDoorSide == EDoorSide::Front ? EDoorMotion::Push : EDoorMotion::Pull;
@@ -141,8 +141,8 @@ bool UDoorStatics::ProgressDoorState(const ADoor* Door, EDoorState DoorState, ED
 		// We are opening the door
 		NewDoorState = EDoorState::Opening;
 
-		// From which side
-		NewDoorSide = AvatarDoorSide;
+		// @TODO From which side
+		NewDoorDirection = AvatarDoorSide == EDoorSide::Front ? EDoorDirection::Outward : EDoorDirection::Inward;
 		
 		// Let's try to open it the way we'd prefer
 		Motion = Door->GetDoorOpenMotion();
@@ -219,6 +219,16 @@ FString UDoorStatics::DoorStateToString(EDoorState State)
 	}
 }
 
+FString UDoorStatics::DoorDirectionToString(EDoorDirection Direction)
+{
+	switch (Direction)
+	{
+	case EDoorDirection::Outward: return TEXT("Outward");
+	case EDoorDirection::Inward: return TEXT("Inward");
+	default: return TEXT("Unknown");
+	}
+}
+
 FString UDoorStatics::DoorSideToString(EDoorSide Side)
 {
 	switch (Side)
@@ -227,6 +237,52 @@ FString UDoorStatics::DoorSideToString(EDoorSide Side)
 	case EDoorSide::Back: return TEXT("Back");
 	default: return TEXT("Unknown");
 	}
+}
+
+FString UDoorStatics::DoorStateDirectionToString(EDoorState State, EDoorDirection Direction)
+{
+	switch (State)
+	{
+	case EDoorState::Closed:
+		{
+			switch (Direction)
+			{
+			case EDoorDirection::Outward: return TEXT("Closed-Outward");
+			case EDoorDirection::Inward: return TEXT("Closed-Inward");
+			}
+		}
+		break;
+	case EDoorState::Opening:
+		{
+			switch (Direction)
+			{
+			case EDoorDirection::Outward: return TEXT("Opening-Outward");
+			case EDoorDirection::Inward: return TEXT("Opening-Inward");
+			}
+		}
+		break;
+	case EDoorState::Open: 
+		{
+			switch (Direction)
+			{
+			case EDoorDirection::Outward: return TEXT("Open-Outward");
+			case EDoorDirection::Inward: return TEXT("Open-Inward");
+			}
+		}
+		break;
+	case EDoorState::Closing: 
+		{
+			switch (Direction)
+			{
+			case EDoorDirection::Outward: return TEXT("Closing-Outward");
+			case EDoorDirection::Inward: return TEXT("Closing-Inward");
+			}
+		}
+		break;
+	default: return TEXT("Unknown");
+	}
+	
+	return TEXT("Unknown");
 }
 
 FString UDoorStatics::DoorStateSideToString(EDoorState State, EDoorSide Side)

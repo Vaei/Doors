@@ -10,6 +10,6 @@ DEFINE_LOG_CATEGORY(LogDoors);
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(DoorTypes)
 
-FDoorAbilityTargetData::FDoorAbilityTargetData(const EDoorState& InDoorState, const EDoorSide& InDoorSide)
-	: DoorState(UDoorStatics::PackDoorState(InDoorState, InDoorSide))
+FDoorAbilityTargetData::FDoorAbilityTargetData(const EDoorState& InDoorState, const EDoorDirection& InDoorDirection)
+	: DoorState(UDoorStatics::PackDoorState(InDoorState, InDoorDirection))
 {}
