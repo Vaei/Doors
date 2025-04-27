@@ -1,3 +1,6 @@
+# Ignore door editor sprites (don't use LFS for these)
+Content/Editor/T_Door_Sprite_*.uasset -filter -diff -merge text
+
 *.tif filter=lfs diff=lfs merge=lfs -text
 *.cubemap filter=lfs diff=lfs merge=lfs -text
 *.tga filter=lfs diff=lfs merge=lfs -text
@@ -11,7 +14,6 @@
 *.jpg filter=lfs diff=lfs merge=lfs -text
 *.hdr filter=lfs diff=lfs merge=lfs -text
 *.bin.fbx filter=lfs diff=lfs merge=lfs -text
-
 *.uasset filter=lfs diff=lfs merge=lfs -text
 *.umap filter=lfs diff=lfs merge=lfs -text
 *.upk filter=lfs diff=lfs merge=lfs -text
