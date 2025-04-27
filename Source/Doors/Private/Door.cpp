@@ -43,24 +43,25 @@ void ADoor::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifet
 void ADoor::OnRep_DoorState()
 {
 	EDoorState NewDoorState;
-	EDoorSide NewDoorSide;
-	UDoorStatics::UnpackDoorState(RepDoorState, NewDoorState, NewDoorSide);
-	SetDoorState(NewDoorState, NewDoorSide);
+	EDoorDirection NewDoorDirection;
+	UDoorStatics::UnpackDoorState(RepDoorState, NewDoorState, NewDoorDirection);
+	SetDoorState(NewDoorState, NewDoorDirection);
 }
 
-void ADoor::SetDoorState(EDoorState NewDoorState, EDoorSide NewDoorSide)
+void ADoor::SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirection)
 {
-	if (DoorState != NewDoorState || DoorSide != NewDoorSide)
+	if (DoorState != NewDoorState || DoorDirection != NewDoorDirection)
 	{
 		const EDoorState OldDoorState = DoorState;
-		const EDoorSide OldDoorSide = DoorSide;
+		const EDoorDirection OldDoorDirection = DoorDirection;
 		DoorState = NewDoorState;
-		DoorSide = NewDoorSide;
-		OnDoorStateChanged(OldDoorState, NewDoorState, OldDoorSide, NewDoorSide);
+		DoorDirection = NewDoorDirection;
+		OnDoorStateChanged(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
 	}
 }
 
-void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState, EDoorSide OldDoorSide, EDoorSide NewDoorSide)
+void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection,
+	EDoorDirection NewDoorDirection)
 {
 	// Update door access
 	if (bHasPendingDoorAccess)
@@ -132,17 +133,17 @@ void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState,
 	}
 	else if (IsDoorStateInMotion(OldDoorState))
 	{
-		OnDoorInMotionInterrupted(OldDoorState, NewDoorState, OldDoorSide, NewDoorSide);
+		OnDoorInMotionInterrupted(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
 	}
 
 	// Replicate the door state to clients
 	if (HasAuthority() && GetNetMode() != NM_Standalone)
 	{
-		RepDoorState = UDoorStatics::PackDoorState(DoorState, DoorSide);
+		RepDoorState = UDoorStatics::PackDoorState(DoorState, DoorDirection);
 		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, RepDoorState, this);
 	}
 	
-	K2_OnDoorStateChanged(OldDoorState, NewDoorState, OldDoorSide, NewDoorSide);
+	K2_OnDoorStateChanged(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
 }
 
 // -------------------------------------------------------------
@@ -299,8 +300,9 @@ bool ADoor::IsDoorOnStationaryCooldown() const
 	return LastStationaryTime >= 0.f && GetWorld()->TimeSince(LastStationaryTime) < StationaryCooldown;
 }
 
-bool ADoor::ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState ClientDoorState, EDoorSide ClientDoorSide,
-	EDoorSide CurrentDoorSide, EDoorState& NewDoorState, EDoorSide& NewDoorSide, EDoorMotion& DoorMotion) const
+bool ADoor::ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState ClientDoorState,
+	EDoorDirection ClientDoorDirection, EDoorSide ClientDoorSide, EDoorSide CurrentDoorSide, EDoorState& NewDoorState,
+	EDoorDirection& NewDoorDirection, EDoorMotion& DoorMotion) const
 {
 	// General optional override
 	if (!CanDoorChangeToAnyState(Avatar))
@@ -327,14 +329,14 @@ bool ADoor::ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState Cli
 	}
 
 	// Check if the client can interact with the door
-	if (!UDoorStatics::ProgressDoorState(this, ClientDoorState, ClientDoorSide,
-		NewDoorState, NewDoorSide, DoorMotion))
+	if (!UDoorStatics::ProgressDoorState(this, ClientDoorState, ClientDoorDirection,
+		ClientDoorSide, NewDoorState, NewDoorDirection, DoorMotion))
 	{
 		return false;
 	}
 
 	// General optional override
-	if (!CanChangeDoorState(Avatar, DoorState, NewDoorState, DoorSide, NewDoorSide))
+	if (!CanChangeDoorState(Avatar, DoorState, NewDoorState, DoorDirection, NewDoorDirection))
 	{
 		return false;
 	}
@@ -347,7 +349,7 @@ bool ADoor::ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState Cli
 void ADoor::HandleDoorPropertyChange()
 {
 	// Make sure we initialize the replicated property based on the default state
-	RepDoorState = UDoorStatics::PackDoorState(DoorState, DoorSide);
+	RepDoorState = UDoorStatics::PackDoorState(DoorState, DoorDirection);
 }
 
 void ADoor::PostLoad()
@@ -364,7 +366,7 @@ void ADoor::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChanged
 	const FName& PropertyName = PropertyChangedEvent.GetMemberPropertyName();
 	
 	if (PropertyName.IsEqual(GET_MEMBER_NAME_CHECKED(ThisClass, DoorState)) ||
-		PropertyName.IsEqual(GET_MEMBER_NAME_CHECKED(ThisClass, DoorSide)))
+		PropertyName.IsEqual(GET_MEMBER_NAME_CHECKED(ThisClass, DoorDirection)))
 	{
 		HandleDoorPropertyChange();
 	}

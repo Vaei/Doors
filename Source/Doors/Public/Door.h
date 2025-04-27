@@ -33,11 +33,11 @@ protected:
 	EDoorState DoorState = EDoorState::Closed;
 
 	/**
-	 * The last side the door was interacted from
-	 * You can change the default side of the door
+	 * The direction the door entered it's current state from
+	 * You can change the default direction of the door
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
-	EDoorSide DoorSide = EDoorSide::Front;
+	EDoorDirection DoorDirection = EDoorDirection::Outward;
 	
 	UPROPERTY(ReplicatedUsing=OnRep_DoorState)
 	EReplicatedDoorState RepDoorState = EReplicatedDoorState::ClosedFront;
@@ -55,11 +55,11 @@ public:
 	EDoorState GetDoorState() const { return DoorState; }
 	
 	UFUNCTION(BlueprintPure, Category=Door)
-	EDoorSide GetDoorSide() const { return DoorSide; }
+	EDoorDirection GetDoorDirection() const { return DoorDirection; }
 
-	void SetDoorState(EDoorState NewDoorState, EDoorSide NewDoorSide);
+	void SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirection);
 
-	void OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState, EDoorSide OldDoorSide, EDoorSide NewDoorSide);
+	void OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection);
 
 	/**
 	 * Called from ShouldDoorAbilityRespondToEvent() as an early extension point to override before any other checks occur
@@ -74,14 +74,14 @@ public:
 	 * @return false if you want to prevent an otherwise successful change in door state
 	 */
 	UFUNCTION(BlueprintNativeEvent, Category=Door)
-	bool CanChangeDoorState(const AActor* Avatar, EDoorState CurrentDoorState, EDoorState NewDoorState, EDoorSide OldDoorSide, EDoorSide NewDoorSide) const;
-	bool CanChangeDoorState_Implementation(const AActor* Avatar, EDoorState CurrentDoorState, EDoorState NewDoorState, EDoorSide OldDoorSide, EDoorSide NewDoorSide) const
+	bool CanChangeDoorState(const AActor* Avatar, EDoorState CurrentDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection) const;
+	virtual bool CanChangeDoorState_Implementation(const AActor* Avatar, EDoorState CurrentDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection) const
 	{
 		return true;
 	}
 
 	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door State Changed"))
-	void K2_OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState, EDoorSide OldDoorSide, EDoorSide NewDoorSide);
+	void K2_OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection);
 
 protected:
 	// Door State Events
@@ -90,9 +90,9 @@ protected:
 	virtual void OnDoorFinishedClosing() { K2_OnDoorFinishedClosing(); }
 	virtual void OnDoorStartedOpening() { K2_OnDoorStartedOpening(); }
 	virtual void OnDoorStartedClosing() { K2_OnDoorStartedClosing(); }
-	virtual void OnDoorInMotionInterrupted(EDoorState OldDoorState, EDoorState NewDoorState, EDoorSide OldDoorSide, EDoorSide NewDoorSide)
+	virtual void OnDoorInMotionInterrupted(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection)
 	{
-		K2_OnDoorInMotionInterrupted(OldDoorState, NewDoorState, OldDoorSide, NewDoorSide);
+		K2_OnDoorInMotionInterrupted(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
 	}
 
 	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door Finished Closing"))
@@ -109,7 +109,7 @@ protected:
 
 	/** Called when the door is in motion, and was interacted with, causing it to change motion */
 	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door In Motion Interrupted"))
-	void K2_OnDoorInMotionInterrupted(EDoorState OldDoorState, EDoorState NewDoorState, EDoorSide OldDoorSide, EDoorSide NewDoorSide);
+	void K2_OnDoorInMotionInterrupted(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection);
 	
 protected:
 	// Door Access
@@ -118,34 +118,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
 	EDoorAccess DoorAccess = EDoorAccess::Bidirectional;
 
-	/** What to do if changing door access based on the door state */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
-	EDoorChangeType DoorAccessChangeType = EDoorChangeType::Wait;
-
-	/** Used if change type is set to Wait */
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category=Door)
-	EDoorAccess PendingDoorAccess = DoorAccess;
-
-	/** Used if change type is set to Wait */
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category=Door)
-	bool bHasPendingDoorAccess = false;
-	
 	/** Which ways can the door open */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
 	EDoorOpenDirection DoorOpenDirection = EDoorOpenDirection::Bidirectional;
 
-	/** What to do if changing door open mode based on the door state */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
-	EDoorChangeType DoorOpenDirectionChangeType = EDoorChangeType::Wait;
-
-	/** Used if change type is set to Wait */
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category=Door)
-	EDoorOpenDirection PendingDoorOpenDirection = DoorOpenDirection;
-
-	/** Used if change type is set to Wait */
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category=Door)
-	bool bHasPendingDoorOpenDirection = false;
-	
 	/**
 	 * Which action we prefer to use when opening the door
 	 * We might not always use the preferred motion, e.g. we would only push a door open if we're behind it and it opens outwards
@@ -153,16 +129,43 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
 	EDoorMotion DoorOpenMotion = EDoorMotion::Push;
 
+protected:
 	/** What to do if changing door access based on the door state */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Change")
+	EDoorChangeType DoorAccessChangeType = EDoorChangeType::Wait;
+
+	/** Used if change type is set to Wait */
+	UPROPERTY(BlueprintReadOnly, Category="Door Change")
+	EDoorAccess PendingDoorAccess = DoorAccess;
+
+	/** Used if change type is set to Wait */
+	UPROPERTY(BlueprintReadOnly, Category="Door Change")
+	bool bHasPendingDoorAccess = false;
+
+protected:
+	/** What to do if changing door open mode based on the door state */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Change")
+	EDoorChangeType DoorOpenDirectionChangeType = EDoorChangeType::Wait;
+
+	/** Used if change type is set to Wait */
+	UPROPERTY(BlueprintReadOnly, Category="Door Change")
+	EDoorOpenDirection PendingDoorOpenDirection = DoorOpenDirection;
+
+	/** Used if change type is set to Wait */
+	UPROPERTY(BlueprintReadOnly, Category="Door Change")
+	bool bHasPendingDoorOpenDirection = false;
+
+protected:
+	/** What to do if changing door access based on the door state */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Change")
 	EDoorChangeType DoorOpenMotionChangeType = EDoorChangeType::Immediate;
 
 	/** Used if change type is set to Wait */
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category=Door)
+	UPROPERTY(BlueprintReadOnly, Category="Door Change")
 	EDoorMotion PendingDoorOpenMotion = DoorOpenMotion;
 
 	/** Used if change type is set to Wait */
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category=Door)
+	UPROPERTY(BlueprintReadOnly, Category="Door Change")
 	bool bHasPendingDoorOpenMotion = false;
 	
 public:
@@ -212,11 +215,11 @@ public:
 
 protected:
 	/** If false, interaction will be rejected if the client's door side differs from the server's */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Properties")
 	bool bTrustClientDoorSide = true;
 
 	/** If true, the door can be interacted with while in motion, otherwise they must wait for it to finish opening or closing */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Properties")
 	bool bCanInteractWhileInMotion = true;
 
 public:
@@ -225,24 +228,24 @@ public:
 
 public:
 	/** How long to wait before interaction since the door was last interacted with */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Properties")
 	float InteractCooldown = 0.2f;
 
 	/** How long to wait before interaction since the door entered a stationary state after being in motion */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Properties")
 	float StationaryCooldown = 0.3f;
 	
 protected:
 	/** Last time the door was interacted with successfully */
-	UPROPERTY(BlueprintReadOnly, Category=Interaction)
+	UPROPERTY(BlueprintReadOnly, Category=Door)
 	float LastInteractTime = -1.f;
 
 	/** Last time the door entered a stationary state after being in motion */
-	UPROPERTY(BlueprintReadOnly, Category=Interaction)
+	UPROPERTY(BlueprintReadOnly, Category=Door)
 	float LastStationaryTime = -1.f;
 	
 	/** Represents the value in -1 to 1 range by which the door is open or closed, -1 and 1 are fully open inward / outward and 0 is fully closed */
-	UPROPERTY(VisibleAnywhere, Category=Door, meta=(ClampMin="-1", UIMin="-1", ClampMax="1", UIMax="1", ForceUnits="Percent"))
+	UPROPERTY(VisibleInstanceOnly, Category=Door, meta=(ClampMin="-1", UIMin="-1", ClampMax="1", UIMax="1", ForceUnits="Percent"))
 	float DoorAlpha = 0.f;
 
 public:
@@ -264,8 +267,9 @@ public:
 
 public:
 	UFUNCTION(BlueprintCallable, Category=Door)
-	virtual bool ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState ClientDoorState, EDoorSide ClientDoorSide,
-		EDoorSide CurrentDoorSide, EDoorState& NewDoorState, EDoorSide& NewDoorSide, EDoorMotion& DoorMotion) const;
+	virtual bool ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState ClientDoorState,
+		EDoorDirection ClientDoorDirection, EDoorSide ClientDoorSide, EDoorSide CurrentDoorSide,
+		EDoorState& NewDoorState, EDoorDirection& NewDoorDirection, EDoorMotion& DoorMotion) const;
 	
 public:
 	// Door State Helpers
