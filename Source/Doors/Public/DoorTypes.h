@@ -117,6 +117,9 @@ enum class EDoorValid : uint8
 	NotValid,
 };
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FOnDoorStateChanged, const ADoor*, Door, const EDoorState&, OldState,
+	const EDoorState&, NewState, const EDoorDirection&, OldDoorDirection, const EDoorDirection&, NewDoorDirection);
+
 /**
  * We send the door's data to the ability from the client to the client's ability and from the client to the server's ability
  * This allows the client to request specific states rather than a generic interaction, which will fight latency esp. when other players are interacting
