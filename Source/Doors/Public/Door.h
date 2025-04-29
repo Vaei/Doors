@@ -34,19 +34,7 @@ public:
 
 	/** Used to draw debug sprites during PIE in editor */
 	UPROPERTY(VisibleAnywhere)
-	TObjectPtr<UDoorEditorBillboard> DoorBillboardFront;
-
-	/** Used to draw debug sprites during PIE in editor */
-	UPROPERTY(VisibleAnywhere)
-	TObjectPtr<UDoorEditorBillboard> DoorBillboardFrontRep;
-
-	/** Used to draw debug sprites during PIE in editor */
-	UPROPERTY(VisibleAnywhere)
-	TObjectPtr<UDoorEditorBillboard> DoorBillboardBack;
-
-	/** Used to draw debug sprites during PIE in editor */
-	UPROPERTY(VisibleAnywhere)
-	TObjectPtr<UDoorEditorBillboard> DoorBillboardBackRep;
+	TObjectPtr<UDoorEditorBillboard> DoorBillboard;
 
 #if WITH_EDITORONLY_DATA
 	// Hide the billboard in the editor
@@ -75,6 +63,12 @@ protected:
 
 public:
 	ADoor(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+	virtual void BeginPlay() override;
+
+#if WITH_EDITORONLY_DATA
+	void OnToggleShowDoorStateDuringPIE(IConsoleVariable* CVar);
+#endif
 	
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	

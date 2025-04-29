@@ -13,6 +13,7 @@ public class Doors : ModuleRules
 			{
 				"Core",
 				"GameplayAbilities",
+				"DeveloperSettings",
 				"Grasp",
 			}
 			);

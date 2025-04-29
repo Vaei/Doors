@@ -10,6 +10,10 @@
 #include "Net/UnrealNetwork.h"
 #include "Net/Core/PushModel/PushModel.h"
 
+#if WITH_EDITORONLY_DATA
+#include "DoorDeveloper.h"
+#endif
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(Door)
 
 namespace DoorCVars
@@ -20,6 +24,13 @@ namespace DoorCVars
 		TEXT("p.Door.RepDrawTime"),
 		DoorRepDrawTime,
 		TEXT("How long to draw replication billboards after receiving replication. 0 to turn off the billboards, -1 to leave them showing always.\n"),
+		ECVF_Default);
+
+	static bool bShowDoorStateDuringPIE = true;
+	FAutoConsoleVariableRef CVarShowDoorStateDuringPIE(
+		TEXT("p.Door.ShowDoorStateDuringPIE"),
+		bShowDoorStateDuringPIE,
+		TEXT("If true, draw billboard sprites showing the door state during PIE\n"),
 		ECVF_Default);
 #endif
 }
@@ -48,53 +59,50 @@ ADoor::ADoor(const FObjectInitializer& ObjectInitializer)
 	SetRootComponent(Root);
 	
 #if WITH_EDITORONLY_DATA
+	// Draw editor visualization
 	DoorVisualizer = CreateEditorOnlyDefaultSubobject<UDoorEditorVisualizer>(TEXT("DoorVisualizer"));
-	DoorBillboardFront = CreateEditorOnlyDefaultSubobject<UDoorEditorBillboard>(TEXT("DoorBillboardFront"));
-	DoorBillboardBack = CreateEditorOnlyDefaultSubobject<UDoorEditorBillboard>(TEXT("DoorBillboardBack"));
-	DoorBillboardFrontRep = CreateEditorOnlyDefaultSubobject<UDoorEditorBillboard>(TEXT("DoorBillboardFrontRep"));
-	DoorBillboardBackRep = CreateEditorOnlyDefaultSubobject<UDoorEditorBillboard>(TEXT("DoorBillboardBackRep"));
-	if (DoorBillboardFront)
-	{
-		DoorBillboardFront->SetupAttachment(RootComponent);
-		DoorBillboardFront->AddRelativeLocation(GetActorForwardVector() * 25.f + GetActorUpVector() * 100.f);
-		DoorBillboardFront->SetHiddenInGame(false);
-		DoorBillboardFront->SetVisibility(false);
-		DoorBillboardFront->bIsScreenSizeScaled = true;
-		DoorBillboardFront->ScreenSize = 0.1f;
-		DoorBillboardFront->SetRelativeScale3D_Direct(FVector(1.25f));
-		DoorBillboardFront->OnDoorStateChanged(this, false);
-	}
-	if (DoorBillboardBack)
-	{
-		DoorBillboardBack->SetupAttachment(RootComponent);
-		DoorBillboardBack->AddRelativeLocation(GetActorForwardVector() * -25.f + GetActorUpVector() * 100.f);
-		DoorBillboardBack->SetHiddenInGame(false);
-		DoorBillboardBack->SetVisibility(false);
-		DoorBillboardBack->bIsScreenSizeScaled = true;
-		DoorBillboardBack->ScreenSize = 0.1f;
-		DoorBillboardBack->SetRelativeScale3D_Direct(FVector(1.25f));
-		DoorBillboardBack->OnDoorStateChanged(this, false);
-	}
-	if (DoorBillboardFrontRep)
-	{
-		DoorBillboardFrontRep->SetupAttachment(RootComponent);
-		DoorBillboardFrontRep->AddRelativeLocation(GetActorForwardVector() * 25.f + GetActorRightVector() * -15.f + GetActorUpVector() * 135.f);
-		DoorBillboardFrontRep->SetHiddenInGame(false);
-		DoorBillboardFrontRep->SetVisibility(false);
-		DoorBillboardFrontRep->bIsScreenSizeScaled = true;
-		DoorBillboardFrontRep->ScreenSize = 0.1f;
-	}
-	if (DoorBillboardBackRep)
-	{
-		DoorBillboardBackRep->SetupAttachment(RootComponent);
-		DoorBillboardBackRep->AddRelativeLocation(GetActorForwardVector() * -25.f + GetActorRightVector() * 15.f + GetActorUpVector() * 135.f);
-		DoorBillboardBackRep->SetHiddenInGame(false);
-		DoorBillboardBackRep->SetVisibility(false);
-		DoorBillboardBackRep->bIsScreenSizeScaled = true;
-		DoorBillboardBackRep->ScreenSize = 0.1f;
-	}
+
+	// Draw PIE visualization
+	DoorBillboard = CreateEditorOnlyDefaultSubobject<UDoorEditorBillboard>(TEXT("DoorBillboard"));
+	DoorBillboard->SetupAttachment(RootComponent);
+	DoorBillboard->AddRelativeLocation(GetActorForwardVector() * 25.f + GetActorUpVector() * 100.f);
+	DoorBillboard->SetHiddenInGame(false);
+	DoorBillboard->SetVisibility(false);
+	DoorBillboard->bIsScreenSizeScaled = true;
+	DoorBillboard->ScreenSize = 0.1f;
+	DoorBillboard->SetRelativeScale3D_Direct(FVector(1.25f));
+	DoorBillboard->OnDoorStateChanged(this, false);
 #endif
 }
+
+void ADoor::BeginPlay()
+{
+	Super::BeginPlay();
+
+#if WITH_EDITORONLY_DATA
+	if (DoorCVars::bShowDoorStateDuringPIE)
+	{
+		// Show the billboards immediately
+		DoorBillboard->OnDoorStateChanged(this, false);
+	}
+
+	// Bind the CVar delegate so we know if user toggled the drawing
+	const FConsoleVariableDelegate ShowDoorStateDuringPIEDelegate = FConsoleVariableDelegate::CreateUObject(this,
+		&ThisClass::OnToggleShowDoorStateDuringPIE);
+	
+	DoorCVars::CVarShowDoorStateDuringPIE->SetOnChangedCallback(ShowDoorStateDuringPIEDelegate);
+#endif
+}
+
+#if WITH_EDITORONLY_DATA
+void ADoor::OnToggleShowDoorStateDuringPIE(IConsoleVariable* CVar)
+{
+	if (CVar)
+	{
+		DoorBillboard->SetVisibility(CVar->GetBool());
+	}
+}
+#endif
 
 void ADoor::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -119,58 +127,6 @@ void ADoor::OnRep_DoorState()
 	EDoorDirection NewDoorDirection;
 	UDoorStatics::UnpackDoorState(RepDoorState, NewDoorState, NewDoorDirection);
 	SetDoorState(NewDoorState, NewDoorDirection);
-
-#if WITH_EDITORONLY_DATA
-	// Show the billboards after receiving replication
-	if (GetNetMode() != NM_DedicatedServer)
-	{
-		// If we want to show the billboards for a certain amount of time
-		if (!FMath::IsNearlyEqual(DoorCVars::DoorRepDrawTime, -1.f))
-		{
-			// Hide the billboards after a delay
-			if (DoorCVars::DoorRepDrawTime > 0.01f)
-			{
-				FTimerDelegate Delegate;
-				Delegate.BindLambda([this]
-				{
-					if (DoorBillboardFrontRep)
-					{
-						DoorBillboardFrontRep->SetVisibility(false);
-					}
-					if (DoorBillboardBackRep)
-					{
-						DoorBillboardBackRep->SetVisibility(false);
-					}
-				});
-				GetWorld()->GetTimerManager().SetTimer(OnRepBillboardTimerHandle, Delegate, DoorCVars::DoorRepDrawTime, false);
-			}
-
-			// Show the billboards after receiving replication
-			if (DoorBillboardFrontRep)
-			{
-				DoorBillboardFrontRep->SetVisibility(true);
-				DoorBillboardFrontRep->OnDoorStateChanged(this, true);
-			}
-			if (DoorBillboardBackRep)
-			{
-				DoorBillboardBackRep->SetVisibility(true);
-				DoorBillboardBackRep->OnDoorStateChanged(this, true);
-			}
-		}
-		else
-		{
-			// We don't want to show billboards
-			if (DoorBillboardFrontRep)
-			{
-				DoorBillboardFrontRep->SetVisibility(false);
-			}
-			if (DoorBillboardBackRep)
-			{
-				DoorBillboardBackRep->SetVisibility(false);
-			}
-		}
-	}
-#endif
 }
 
 void ADoor::SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirection)
@@ -276,18 +232,10 @@ void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState,
 	}
 
 #if WITH_EDITORONLY_DATA
-	if (GetNetMode() != NM_DedicatedServer)
+	if (GetNetMode() != NM_DedicatedServer && DoorCVars::bShowDoorStateDuringPIE)
 	{
-		if (DoorBillboardFront)
-		{
-			DoorBillboardFront->SetVisibility(true);
-			DoorBillboardFront->OnDoorStateChanged(this, false);
-		}
-		if (DoorBillboardBack)
-		{
-			DoorBillboardBack->SetVisibility(true);
-			DoorBillboardBack->OnDoorStateChanged(this, false);
-		}
+		DoorBillboard->SetVisibility(true);
+		DoorBillboard->OnDoorStateChanged(this, false);
 	}
 #endif
 }
@@ -624,8 +572,7 @@ void ADoor::HandleDoorPropertyChange()
 	RepDoorState = UDoorStatics::PackDoorState(DoorState, DoorDirection);
 
 #if WITH_EDITORONLY_DATA
-	if (DoorBillboardFront)	{ DoorBillboardFront->OnDoorStateChanged(this, false); }
-	if (DoorBillboardBack)	{ DoorBillboardBack->OnDoorStateChanged(this, false); }
+	DoorBillboard->OnDoorStateChanged(this, false);
 #endif
 }
 
