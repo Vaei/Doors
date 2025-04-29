@@ -25,13 +25,33 @@ public:
 	virtual TArray<FGameplayAbilityTargetData*> GatherOptionalGraspTargetData(const FGameplayAbilityActorInfo* ActorInfo) const override final;
 	
 public:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Door)
+	TObjectPtr<USceneComponent> Root;
+	
 	/** Ties into FDoorVisualizer to draw editor visuals */
 	UPROPERTY()
 	TObjectPtr<UDoorEditorVisualizer> DoorVisualizer;
 
 	/** Used to draw debug sprites during PIE in editor */
-	UPROPERTY()
-	TObjectPtr<UDoorEditorBillboard> DoorBillboard;
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UDoorEditorBillboard> DoorBillboardFront;
+
+	/** Used to draw debug sprites during PIE in editor */
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UDoorEditorBillboard> DoorBillboardFrontRep;
+
+	/** Used to draw debug sprites during PIE in editor */
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UDoorEditorBillboard> DoorBillboardBack;
+
+	/** Used to draw debug sprites during PIE in editor */
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UDoorEditorBillboard> DoorBillboardBackRep;
+
+#if WITH_EDITORONLY_DATA
+	// Hide the billboard in the editor
+	FTimerHandle OnRepBillboardTimerHandle;
+#endif
 	
 protected:
 	// Door State
@@ -81,6 +101,9 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category=Door)
 	EDoorDirection GetDoorDirection() const { return DoorDirection; }
+
+	UFUNCTION(BlueprintPure, Category=Door)
+	EReplicatedDoorState GetRepDoorState() const { return RepDoorState; }
 
 	UFUNCTION(BlueprintCallable, Category=Door)
 	void SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirection);
