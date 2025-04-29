@@ -93,12 +93,12 @@ void FDoorVisualizer::DrawVisualization(const UActorComponent* InComponent, cons
 	const FVector FloorExtendBackLeft = FloorBackLeft + -Forward * Extension;
 	const FVector FloorExtendBackRight = FloorBackRight + -Forward * Extension;
 
-	// PDI->DrawPoint(FloorFront, FColor::Red, 30.f, SDPG_World);
+	// PDI->DrawPoint(FloorFront, FColor::Red, 30.f, SDPG_Foreground);
 
 	// Draw an arrow showing which way the door is oriented
 	// const FMatrix Matrix = FTranslationMatrix(Origin) * FRotationMatrix(Door->GetActorRotation());
 	// DrawFlatArrow(PDI, Floor, Matrix.GetScaledAxis(EAxis::X), Matrix.GetScaledAxis(EAxis::Y),
-	// 	FColor::Yellow, Extension * 1.f, Extension * 0.5f, Proxy, SDPG_World, 1.f);	
+	// 	FColor::Yellow, Extension * 1.f, Extension * 0.5f, Proxy, SDPG_Foreground, 1.f);	
 
 	// Draw the door state
 	const FString DoorStateInfo = UDoorStatics::DoorStateDirectionToString(Door->GetDoorState(), Door->GetDoorDirection());
@@ -172,10 +172,10 @@ void FDoorVisualizer::DrawVisualization(const UActorComponent* InComponent, cons
 	const FLinearColor BackLockColor = bBackLocked ? FColor::Orange.ReinterpretAsLinear() : FColor::Emerald.ReinterpretAsLinear();
 
 	// Draw a box in front of the door
-	PDI->DrawLine(FloorFrontLeft, FloorFrontRight, FrontLockColor, SDPG_World, LineThickness);
-	PDI->DrawLine(FloorFrontLeft, FloorExtendFrontLeft, FrontLockColor, SDPG_World, LineThickness);
-	PDI->DrawLine(FloorFrontRight, FloorExtendFrontRight, FrontLockColor, SDPG_World, LineThickness);
-	PDI->DrawLine(FloorExtendFrontLeft, FloorExtendFrontRight, FrontLockColor, SDPG_World, LineThickness);
+	PDI->DrawLine(FloorFrontLeft, FloorFrontRight, FrontLockColor, SDPG_Foreground, LineThickness);
+	PDI->DrawLine(FloorFrontLeft, FloorExtendFrontLeft, FrontLockColor, SDPG_Foreground, LineThickness);
+	PDI->DrawLine(FloorFrontRight, FloorExtendFrontRight, FrontLockColor, SDPG_Foreground, LineThickness);
+	PDI->DrawLine(FloorExtendFrontLeft, FloorExtendFrontRight, FrontLockColor, SDPG_Foreground, LineThickness);
 
 	// Draw segments horizontally through the box we just drew above
 	constexpr int32 Segments = 5;
@@ -184,14 +184,14 @@ void FDoorVisualizer::DrawVisualization(const UActorComponent* InComponent, cons
 		// The box above is on the ground, these must be on the ground too, as subdivisions of the box, we need to draw them 100cm to match the extension
 		const FVector FloorLeft = FloorFrontLeft + LocalX * (Extension / (float)Segments) * i;
 		const FVector FloorRight = FloorFrontRight + LocalX * (Extension / (float)Segments) * i;
-		PDI->DrawLine(FloorLeft, FloorRight, FrontLockColor, SDPG_World, LineThickness);
+		PDI->DrawLine(FloorLeft, FloorRight, FrontLockColor, SDPG_Foreground, LineThickness);
 	}
 
 	// Draw a box at the back of the door floor
-	PDI->DrawLine(FloorBackLeft, FloorBackRight, BackLockColor, SDPG_World, LineThickness);
-	PDI->DrawLine(FloorBackLeft, FloorExtendBackLeft, BackLockColor, SDPG_World, LineThickness);
-	PDI->DrawLine(FloorBackRight, FloorExtendBackRight, BackLockColor, SDPG_World, LineThickness);
-	PDI->DrawLine(FloorExtendBackLeft, FloorExtendBackRight, BackLockColor, SDPG_World, LineThickness);
+	PDI->DrawLine(FloorBackLeft, FloorBackRight, BackLockColor, SDPG_Foreground, LineThickness);
+	PDI->DrawLine(FloorBackLeft, FloorExtendBackLeft, BackLockColor, SDPG_Foreground, LineThickness);
+	PDI->DrawLine(FloorBackRight, FloorExtendBackRight, BackLockColor, SDPG_Foreground, LineThickness);
+	PDI->DrawLine(FloorExtendBackLeft, FloorExtendBackRight, BackLockColor, SDPG_Foreground, LineThickness);
 
 	// Draw segments horizontally through the box we just drew above
 	for (int32 i = 1; i < Segments; ++i)
@@ -199,6 +199,6 @@ void FDoorVisualizer::DrawVisualization(const UActorComponent* InComponent, cons
 		// The box above is on the ground, these must be on the ground too, as subdivisions of the box, we need to draw them 100cm to match the extension
 		const FVector FloorLeft = FloorBackLeft + -LocalX * (Extension / (float)Segments) * i;
 		const FVector FloorRight = FloorBackRight + -LocalX * (Extension / (float)Segments) * i;
-		PDI->DrawLine(FloorLeft, FloorRight, BackLockColor, SDPG_World, LineThickness);
+		PDI->DrawLine(FloorLeft, FloorRight, BackLockColor, SDPG_Foreground, LineThickness);
 	}
 }
