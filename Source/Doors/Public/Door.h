@@ -9,7 +9,6 @@
 #include "Door.generated.h"
 
 class UDoorSpriteWidgetComponent;
-class UDoorEditorBillboard;
 class UDoorEditorVisualizer;
 
 /**
@@ -37,11 +36,6 @@ public:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UDoorSpriteWidgetComponent> DoorSprite;
 
-#if WITH_EDITORONLY_DATA
-	// Hide the billboard in the editor
-	FTimerHandle OnRepBillboardTimerHandle;
-#endif
-	
 protected:
 	// Door State
 

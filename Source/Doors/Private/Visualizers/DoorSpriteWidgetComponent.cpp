@@ -8,7 +8,7 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(DoorSpriteWidgetComponent)
 
-
+#if WITH_EDITORONLY_DATA
 void UDoorSpriteWidgetComponent::InitWidget()
 {
 	if (IsRunningDedicatedServer())
@@ -41,3 +41,4 @@ void UDoorSpriteWidgetComponent::OnRepDoorStateChanged(EReplicatedDoorState RepD
 		DoorWidget->OnRepDoorStateChanged(RepDoorState);
 	}
 }
+#endif

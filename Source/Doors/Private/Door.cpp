@@ -22,7 +22,7 @@ namespace DoorCVars
 	FAutoConsoleVariableRef CVarShowDoorStateDuringPIE(
 		TEXT("p.Door.ShowDoorStateDuringPIE"),
 		bShowDoorStateDuringPIE,
-		TEXT("If true, draw billboard sprites showing the door state during PIE\n"),
+		TEXT("If true, draw sprites showing the door state during PIE\n"),
 		ECVF_Default);
 #endif
 }
@@ -56,7 +56,12 @@ ADoor::ADoor(const FObjectInitializer& ObjectInitializer)
 
 	// Draw PIE visualization
 	DoorSprite = CreateEditorOnlyDefaultSubobject<UDoorSpriteWidgetComponent>(TEXT("DoorSprite"));
+	DoorSprite->SetGenerateOverlapEvents(false);
+	DoorSprite->SetCollisionProfileName(TEXT("NoCollision"));
 	DoorSprite->SetupAttachment(RootComponent);
+	DoorSprite->SetRelativeLocation(FVector(0.f, 0.f, 100.f));
+	DoorSprite->SetWidgetSpace(EWidgetSpace::Screen);
+	DoorSprite->SetDrawAtDesiredSize(true);
 #endif
 }
 

@@ -15,10 +15,12 @@ class DOORS_API UDoorSpriteWidgetComponent : public UWidgetComponent
 {
 	GENERATED_BODY()
 
+#if WITH_EDITORONLY_DATA
 public:
 	TWeakObjectPtr<UDoorSpriteWidget> DoorWidget;
 	
 	virtual void InitWidget() override;
 	
 	void OnRepDoorStateChanged(EReplicatedDoorState RepDoorState) const;
+#endif
 };
