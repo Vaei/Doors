@@ -3,8 +3,10 @@
 
 #include "Door.h"
 
+#include "DoorEditorBillboard.h"
 #include "DoorEditorVisualizer.h"
 #include "DoorStatics.h"
+#include "Abilities/GameplayAbilityTypes.h"
 #include "Net/UnrealNetwork.h"
 #include "Net/Core/PushModel/PushModel.h"
 
@@ -30,10 +32,11 @@ ADoor::ADoor(const FObjectInitializer& ObjectInitializer)
 	PrimaryActorTick.bAllowTickOnDedicatedServer = false;
 	NetCullDistanceSquared = 25000000.0;  // 5000cm
 	NetDormancy = DORM_Initial;
-	SetReplicates(true);
+	bReplicates = true;
 
 #if WITH_EDITORONLY_DATA
 	DoorVisualizer = CreateEditorOnlyDefaultSubobject<UDoorEditorVisualizer>(TEXT("DoorVisualizer"));
+	DoorBillboard = CreateEditorOnlyDefaultSubobject<UDoorEditorBillboard>(TEXT("DoorBillboard"));
 #endif
 }
 
@@ -46,6 +49,9 @@ void ADoor::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifet
 	SharedParams.Condition = COND_SimulatedOnly;
 	
 	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, RepDoorState, SharedParams);
+	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, DoorAccess, SharedParams);
+	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, DoorOpenDirection, SharedParams);
+	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, DoorOpenMotion, SharedParams);
 }
 
 // -------------------------------------------------------------
@@ -155,6 +161,114 @@ void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState,
 	}
 	
 	K2_OnDoorStateChanged(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
+
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		K2_OnDoorStateChangedCosmetic(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
+	}
+}
+
+void ADoor::OnDoorFinishedOpening()
+{
+	switch (DoorDirection)
+	{
+	case EDoorDirection::Outward:
+		break;
+	case EDoorDirection::Inward:
+		break;
+	}
+	
+	K2_OnDoorFinishedOpening();
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		K2_OnDoorFinishedOpeningCosmetic();
+	}
+}
+
+void ADoor::OnDoorFinishedClosing()
+{
+	K2_OnDoorFinishedClosing();
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		K2_OnDoorFinishedClosingCosmetic();
+	}
+}
+
+void ADoor::OnDoorStartedOpening()
+{
+	K2_OnDoorStartedOpening();
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		K2_OnDoorStartedOpeningCosmetic();
+	}
+}
+
+void ADoor::OnDoorStartedClosing()
+{
+	K2_OnDoorStartedClosing();
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		K2_OnDoorStartedClosingCosmetic();
+	}
+}
+
+void ADoor::OnDoorInMotionInterrupted(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection,
+	EDoorDirection NewDoorDirection)
+{
+	K2_OnDoorInMotionInterrupted(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		K2_OnDoorInMotionInterruptedCosmetic(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
+	}
+}
+
+// -------------------------------------------------------------
+// Door Alpha
+
+bool ADoor::SetDoorAlpha(float NewDoorAlpha)
+{
+	const float PrevDoorAlpha = DoorAlpha;
+
+	// Clamp -1 to 1
+	NewDoorAlpha = FMath::Clamp<float>(NewDoorAlpha, -1.f, 1.f);
+
+	// Snap if nearly finished closing
+	if (IsDoorClosedOrClosing() && FMath::IsNearlyZero(NewDoorAlpha))
+	{
+		NewDoorAlpha = 0.f;
+	}
+
+	// Snap if nearly finished opening
+	if (IsDoorOpenOrOpening() && FMath::IsNearlyEqual(FMath::Abs<float>(NewDoorAlpha), 1.f))
+	{
+		NewDoorAlpha = FMath::Sign(NewDoorAlpha);
+	}
+
+	// Update the door alpha
+	DoorAlpha = NewDoorAlpha;
+
+	OnDoorAlphaChanged(PrevDoorAlpha, NewDoorAlpha);
+	return true;
+}
+
+void ADoor::OnDoorAlphaChanged(float OldDoorAlpha, float NewDoorAlpha)
+{
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogDoors, VeryVerbose, TEXT("OnDoorAlphaChanged: OldDoorAlpha: %f, NewDoorAlpha: %f"),
+		OldDoorAlpha, NewDoorAlpha);
+#endif
+
+	// Finalize the door state if required
+	if (DoorState == EDoorState::Opening && FMath::IsNearlyEqual(GetDoorAlphaAbs(), 1.f))
+	{
+		SetDoorState(EDoorState::Open, DoorDirection);
+	}
+	else if (DoorState == EDoorState::Closing && FMath::IsNearlyZero(GetDoorAlphaAbs()))
+	{
+		SetDoorState(EDoorState::Closed, DoorDirection);
+	}
+
+	K2_OnDoorAlphaChanged(OldDoorAlpha, NewDoorAlpha);
 }
 
 // -------------------------------------------------------------
@@ -200,6 +314,11 @@ bool ADoor::CanChangeDoorAccess_Implementation(EDoorAccess NewDoorAccess) const
 void ADoor::OnDoorAccessChanged(EDoorAccess OldDoorAccess, EDoorAccess NewDoorAccess)
 {
 	bHasPendingDoorAccess = false;
+
+	if (HasAuthority() && GetNetMode() != NM_Standalone)
+	{
+		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, DoorAccess, this);
+	}
 
 	K2_OnDoorAccessChanged(OldDoorAccess, NewDoorAccess);
 }
@@ -247,6 +366,11 @@ bool ADoor::CanChangeDoorOpenDirection_Implementation(EDoorOpenDirection NewDoor
 void ADoor::OnDoorOpenDirectionChanged(EDoorOpenDirection OldDoorOpenDirection, EDoorOpenDirection NewDoorOpenDirection)
 {
 	bHasPendingDoorAccess = false;
+
+	if (HasAuthority() && GetNetMode() != NM_Standalone)
+	{
+		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, DoorOpenDirection, this);
+	}
 	
 	K2_OnDoorOpenDirectionChanged(OldDoorOpenDirection, NewDoorOpenDirection);
 }
@@ -293,6 +417,11 @@ bool ADoor::CanChangeDoorOpenMotion_Implementation(EDoorMotion NewDoorOpenMotion
 
 void ADoor::OnDoorOpenMotionChanged(EDoorMotion OldDoorOpenMotion, EDoorMotion NewDoorOpenMotion)
 {
+	if (HasAuthority() && GetNetMode() != NM_Standalone)
+	{
+		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, DoorOpenMotion, this);
+	}
+	
 	K2_OnDoorOpenMotionChanged(OldDoorOpenMotion, NewDoorOpenMotion);
 }
 
@@ -312,7 +441,7 @@ bool ADoor::IsDoorOnStationaryCooldown() const
 }
 
 bool ADoor::ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState ClientDoorState,
-	EDoorDirection ClientDoorDirection, EDoorSide ClientDoorSide, EDoorSide CurrentDoorSide, EDoorState& NewDoorState,
+	EDoorDirection ClientDoorDirection, EDoorSide ClientDoorSide, EDoorState& NewDoorState,
 	EDoorDirection& NewDoorDirection, EDoorMotion& DoorMotion) const
 {
 	// General optional override
@@ -332,6 +461,9 @@ bool ADoor::ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState Cli
 	{
 		return false;
 	}
+
+	// Determine which side of the door the avatar is on
+	const EDoorSide CurrentDoorSide = UDoorStatics::GetDoorSide(Avatar, this);
 
 	// Check if we can use the client's door side
 	if (ClientDoorSide != CurrentDoorSide && !bTrustClientDoorSide)
@@ -353,6 +485,11 @@ bool ADoor::ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState Cli
 	}
 
 	return true;
+}
+
+EDoorSide ADoor::GetDoorSide(const AActor* Avatar) const
+{
+	return UDoorStatics::GetDoorSide(Avatar, this);
 }
 
 #if WITH_EDITOR

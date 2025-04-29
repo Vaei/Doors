@@ -7,6 +7,7 @@
 
 #include "DoorStatics.generated.h"
 
+struct FGameplayEventData;
 class ADoor;
 
 /**
@@ -24,13 +25,18 @@ public:
 	/** Unpack the door state and door direction from a single uint8 from replication */
 	static void UnpackDoorState(EReplicatedDoorState DoorStatePacked, EDoorState& OutDoorState, EDoorDirection& OutDoorDirection);
 
+	/** Unpack any data sent from the gameplay ability event data payload */
+	UFUNCTION(BlueprintCallable, Category=Door, meta=(ExpandEnumAsExecs="Validate"))
+	static void GetDoorFromAbilityActivationTargetData(const FGameplayEventData& EventData, EDoorValid& Validate,
+		EDoorState& DoorState, EDoorDirection& DoorDirection, EDoorSide& DoorSide);
+	
 	/**
 	 * Based on the current state of the door, if we interact, then we're requesting it to go into a new state
 	 * Determine what the new state is based on the current state, and which side we want the door to open towards
 	 * @param Door The door to check
 	 * @param DoorState The current state of the door
 	 * @param DoorDirection The current direction of the door
-	 * @param AvatarDoorSide The side of the door that we are standing on
+	 * @param DoorSide The side of the door that we are standing on
 	 * @param NewDoorState The new resulting state of the door
 	 * @param NewDoorDirection The new resulting direction of the door
 	 * @param Motion The motion we want to use to interact with the door
@@ -38,7 +44,7 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category=Door)
 	static bool ProgressDoorState(const ADoor* Door, EDoorState DoorState, EDoorDirection DoorDirection,
-		EDoorSide AvatarDoorSide, EDoorState& NewDoorState, EDoorDirection& NewDoorDirection, EDoorMotion& Motion);
+		EDoorSide DoorSide, EDoorState& NewDoorState, EDoorDirection& NewDoorDirection, EDoorMotion& Motion);
 
 	/** 
 	 * Get the target door state based on the current state of the door, when we want to interact with it
@@ -50,12 +56,17 @@ public:
 
 	/**
 	 * Get the door side based on the avatar's location and the door's location
-	 * If the door is rotated -90 yaw to point down Unreal forward axis use EAxis::X (get forward vector)
-	 * Defaulting to EAxis::Y because designers typically don't bother rotating things (get right vector)
 	 */
 	UFUNCTION(BlueprintCallable, Category=Door)
-	static EDoorSide GetDoorSide(const AActor* Avatar, const ADoor* Door, TEnumAsByte<EAxis::Type> DoorForwardAxis = EAxis::Y);
+	static EDoorSide GetDoorSide(const AActor* Avatar, const ADoor* Door);
 
+	/** Convenience function for passing an interactable component on the door, to retrieve and cast the door owner */
+	UFUNCTION(BlueprintPure, Category=Door)
+	static ADoor* GetOwningDoorFromComponent(const USceneComponent* Component);
+
+	UFUNCTION(BlueprintCallable, Category=Door, meta=(ExpandEnumAsExecs="Validate"))
+	static ADoor* GetOwningDoorFromComponentChecked(const USceneComponent* Component, EDoorValid& Validate);
+	
 	UFUNCTION(BlueprintPure, Category=Door)
 	static FString DoorStateToString(EDoorState State);
 

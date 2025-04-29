@@ -45,14 +45,14 @@ enum class EDoorSide : uint8
 UENUM()
 enum class EReplicatedDoorState : uint8
 {
-	ClosedFront,
-	ClosedBack,
-	OpeningFront,
-	OpeningBack,
-	OpenFront,
-	OpenBack,
-	ClosingFront,
-	ClosingBack,
+	ClosedOutward,
+	ClosedInward,
+	OpeningOutward,
+	OpeningInward,
+	OpenOutward,
+	OpenInward,
+	ClosingOutward,
+	ClosingInward,
 };
 
 /**
@@ -110,6 +110,13 @@ enum class EDoorChangeType : uint8
 	Immediate			UMETA(ToolTip="Can be changed at any time, regardless of the door's state"),
 };
 
+UENUM(BlueprintType)
+enum class EDoorValid : uint8
+{
+	Valid,
+	NotValid,
+};
+
 /**
  * We send the door's data to the ability from the client to the client's ability and from the client to the server's ability
  * This allows the client to request specific states rather than a generic interaction, which will fight latency esp. when other players are interacting
@@ -119,11 +126,19 @@ struct DOORS_API FDoorAbilityTargetData : public FGameplayAbilityTargetData
 {
 	GENERATED_BODY()
 
-	FDoorAbilityTargetData(const EDoorState& InDoorState = EDoorState::Closed,
-		const EDoorDirection& InDoorDirection = EDoorDirection::Outward);
+	FDoorAbilityTargetData()
+		: DoorState(EReplicatedDoorState::ClosedOutward)
+		, DoorSide(EDoorSide::Front)
+	{}
+
+	FDoorAbilityTargetData(const EDoorState& InDoorState, const EDoorDirection& InDoorDirection,
+		const EDoorSide& InDoorSide);
 
 	UPROPERTY(BlueprintReadOnly, Category=Character)
 	EReplicatedDoorState DoorState;
+
+	UPROPERTY(BlueprintReadOnly, Category=Character)
+	EDoorSide DoorSide;
 
 	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
 	{

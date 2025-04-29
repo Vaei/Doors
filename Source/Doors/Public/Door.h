@@ -4,10 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "DoorTypes.h"
+#include "GraspableOwner.h"
 
 #include "Door.generated.h"
 
+class UDoorEditorBillboard;
 class UDoorEditorVisualizer;
+
 /**
  * Net-Predicted Doors for interaction (interacting)
  * With replication for non-interaction (observed)
@@ -25,6 +28,10 @@ public:
 	/** Ties into FDoorVisualizer to draw editor visuals */
 	UPROPERTY()
 	TObjectPtr<UDoorEditorVisualizer> DoorVisualizer;
+
+	/** Used to draw debug sprites during PIE in editor */
+	UPROPERTY()
+	TObjectPtr<UDoorEditorBillboard> DoorBillboard;
 	
 protected:
 	// Door State
@@ -44,7 +51,7 @@ protected:
 	EDoorDirection DoorDirection = EDoorDirection::Outward;
 	
 	UPROPERTY(ReplicatedUsing=OnRep_DoorState)
-	EReplicatedDoorState RepDoorState = EReplicatedDoorState::ClosedFront;
+	EReplicatedDoorState RepDoorState = EReplicatedDoorState::ClosedOutward;
 
 public:
 	ADoor(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
@@ -54,6 +61,20 @@ public:
 	UFUNCTION()
 	void OnRep_DoorState();
 
+	/**
+	 * Optionally override this to return a location that reflects the door mesh in its current state
+	 * to allow GetDoorSide to accurately determine which side of the door the avatar is on, while the door is open
+	 */
+	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category=Door)
+	FVector GetDoorLocation() const;
+	virtual FVector GetDoorLocation_Implementation() const { return GetActorLocation();	}
+
+	UFUNCTION(BlueprintPure, Category=Door)
+	FTransform GetDoorTransform() const
+	{
+		return { GetActorTransform().Rotator(), GetDoorLocation(), GetActorScale3D() };
+	}
+	
 public:
 	UFUNCTION(BlueprintPure, Category=Door)
 	EDoorState GetDoorState() const { return DoorState; }
@@ -61,6 +82,7 @@ public:
 	UFUNCTION(BlueprintPure, Category=Door)
 	EDoorDirection GetDoorDirection() const { return DoorDirection; }
 
+	UFUNCTION(BlueprintCallable, Category=Door)
 	void SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirection);
 
 	void OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection);
@@ -87,17 +109,19 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door State Changed"))
 	void K2_OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection);
 
+	/** Same as OnDoorStateChanged but only for cosmetic events, i.e. does not occur on dedicated server */
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, Category=Door, meta=(DisplayName="On Door State Changed (Cosmetic)"))
+	void K2_OnDoorStateChangedCosmetic(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection);
+	
 protected:
 	// Door State Events
 	
-	virtual void OnDoorFinishedOpening() { K2_OnDoorFinishedOpening(); }
-	virtual void OnDoorFinishedClosing() { K2_OnDoorFinishedClosing(); }
-	virtual void OnDoorStartedOpening() { K2_OnDoorStartedOpening(); }
-	virtual void OnDoorStartedClosing() { K2_OnDoorStartedClosing(); }
-	virtual void OnDoorInMotionInterrupted(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection)
-	{
-		K2_OnDoorInMotionInterrupted(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
-	}
+	virtual void OnDoorFinishedOpening();
+	virtual void OnDoorFinishedClosing();
+	virtual void OnDoorStartedOpening();
+	virtual void OnDoorStartedClosing();
+
+	virtual void OnDoorInMotionInterrupted(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection);
 
 	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door Finished Closing"))
 	void K2_OnDoorFinishedClosing();
@@ -114,23 +138,55 @@ protected:
 	/** Called when the door is in motion, and was interacted with, causing it to change motion */
 	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door In Motion Interrupted"))
 	void K2_OnDoorInMotionInterrupted(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection);
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, Category=Door, meta=(DisplayName="On Door Finished Closing (Cosmetic)"))
+	void K2_OnDoorFinishedClosingCosmetic();
+	
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, Category=Door, meta=(DisplayName="On Door Finished Opening (Cosmetic)"))
+	void K2_OnDoorFinishedOpeningCosmetic();
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, Category=Door, meta=(DisplayName="On Door Started Closing (Cosmetic)"))
+	void K2_OnDoorStartedClosingCosmetic();
+	
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, Category=Door, meta=(DisplayName="On Door Started Opening (Cosmetic)"))
+	void K2_OnDoorStartedOpeningCosmetic();
+
+	/** Called when the door is in motion, and was interacted with, causing it to change motion */
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, Category=Door, meta=(DisplayName="On Door In Motion Interrupted (Cosmetic)"))
+	void K2_OnDoorInMotionInterruptedCosmetic(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection);
+	
+public:
+	/** @return True if the door alpha changed */
+	UFUNCTION(BlueprintCallable, Category=Door)
+	bool SetDoorAlpha(float NewDoorAlpha);
+
+	UFUNCTION(BlueprintPure, Category=Door)
+	float GetDoorAlpha() const { return DoorAlpha; }
+
+	UFUNCTION(BlueprintPure, Category=Door)
+	float GetDoorAlphaAbs() const { return FMath::Abs<float>(DoorAlpha); }
+
+	void OnDoorAlphaChanged(float OldDoorAlpha, float NewDoorAlpha);
+
+	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door Alpha Changed"))
+	void K2_OnDoorAlphaChanged(float OldDoorAlpha, float NewDoorAlpha);
 	
 protected:
 	// Door Access
 
 	/** Which side(s) of the door can we interact from */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadOnly, Category=Door)
 	EDoorAccess DoorAccess = EDoorAccess::Bidirectional;
 
 	/** Which ways can the door open */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadOnly, Category=Door)
 	EDoorOpenDirection DoorOpenDirection = EDoorOpenDirection::Bidirectional;
 
 	/**
 	 * Which action we prefer to use when opening the door
 	 * We might not always use the preferred motion, e.g. we would only push a door open if we're behind it and it opens outwards
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadOnly, Category=Door)
 	EDoorMotion DoorOpenMotion = EDoorMotion::Push;
 
 protected:
@@ -270,10 +326,19 @@ public:
 	bool IsDoorOnStationaryCooldown() const;
 
 public:
-	UFUNCTION(BlueprintCallable, Category=Door)
+	UFUNCTION(BlueprintCallable, BlueprintPure=false, Category=Door)
 	virtual bool ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState ClientDoorState,
-		EDoorDirection ClientDoorDirection, EDoorSide ClientDoorSide, EDoorSide CurrentDoorSide,
-		EDoorState& NewDoorState, EDoorDirection& NewDoorDirection, EDoorMotion& DoorMotion) const;
+		EDoorDirection ClientDoorDirection, EDoorSide ClientDoorSide, EDoorState& NewDoorState,
+		EDoorDirection& NewDoorDirection, EDoorMotion& DoorMotion) const;
+
+public:
+	// General helpers
+
+	/**
+	 * Get the door side based on the avatar's location and the door's location
+	 */
+	UFUNCTION(BlueprintCallable, Category=Door)
+	EDoorSide GetDoorSide(const AActor* Avatar) const;
 	
 public:
 	// Door State Helpers
