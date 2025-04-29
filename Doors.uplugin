@@ -24,5 +24,15 @@
 			"Type": "EditorNoCommandlet",
 			"LoadingPhase": "PostEngineInit"
 		}
+	],
+	"Plugins": [
+		{
+			"Name": "GameplayAbilities",
+			"Enabled": true
+		},
+		{
+			"Name": "Grasp",
+			"Enabled": true
+		}
 	]
 }
