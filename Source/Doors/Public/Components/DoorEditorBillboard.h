@@ -7,6 +7,7 @@
 #include "DoorEditorBillboard.generated.h"
 
 
+class ADoor;
 /**
  * Door editor component
  * Used to draw debug sprites during PIE in editor
@@ -31,10 +32,15 @@ public:
 public:
 	UDoorEditorBillboard()
 	{
+		PrimaryComponentTick.bCanEverTick = false;
+		PrimaryComponentTick.bStartWithTickEnabled = false;
 		bIsEditorOnly = true;
 	}
 
-#if WITH_EDITORONLY_DATA
-	virtual UTexture2D* GetDoorSprite(const ADoor* Door) const;
+#if WITH_EDITOR
+	void OnDoorStateChanged(const ADoor* Door, bool bReplicated);
+
+protected:
+	UTexture2D* GetDoorSprite(const ADoor* Door, bool bReplicated) const;
 #endif
 };
