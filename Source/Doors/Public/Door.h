@@ -8,6 +8,7 @@
 
 #include "Door.generated.h"
 
+class UDoorSpriteWidgetComponent;
 class UDoorEditorBillboard;
 class UDoorEditorVisualizer;
 
@@ -34,7 +35,7 @@ public:
 
 	/** Used to draw debug sprites during PIE in editor */
 	UPROPERTY(VisibleAnywhere)
-	TObjectPtr<UDoorEditorBillboard> DoorBillboard;
+	TObjectPtr<UDoorSpriteWidgetComponent> DoorSprite;
 
 #if WITH_EDITORONLY_DATA
 	// Hide the billboard in the editor
@@ -61,6 +62,10 @@ protected:
 	UPROPERTY(ReplicatedUsing=OnRep_DoorState)
 	EReplicatedDoorState RepDoorState = EReplicatedDoorState::ClosedOutward;
 
+public:
+	UPROPERTY(BlueprintAssignable, Category=Door)
+	FOnDoorStateChanged OnDoorStateChangedDelegate;
+	
 public:
 	ADoor(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 

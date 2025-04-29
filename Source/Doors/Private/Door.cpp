@@ -3,15 +3,14 @@
 
 #include "Door.h"
 
-#include "Components/DoorEditorBillboard.h"
-#include "Components/DoorEditorVisualizer.h"
 #include "DoorStatics.h"
 #include "Abilities/GameplayAbilityTypes.h"
 #include "Net/UnrealNetwork.h"
 #include "Net/Core/PushModel/PushModel.h"
 
 #if WITH_EDITORONLY_DATA
-#include "DoorDeveloper.h"
+#include "Components/DoorEditorVisualizer.h"
+#include "Components/DoorSpriteWidgetComponent.h"
 #endif
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(Door)
@@ -19,13 +18,6 @@
 namespace DoorCVars
 {
 #if WITH_EDITORONLY_DATA
-	static float DoorRepDrawTime = 2.f;
-	FAutoConsoleVariableRef CVarDoorRepDrawTime(
-		TEXT("p.Door.RepDrawTime"),
-		DoorRepDrawTime,
-		TEXT("How long to draw replication billboards after receiving replication. 0 to turn off the billboards, -1 to leave them showing always.\n"),
-		ECVF_Default);
-
 	static bool bShowDoorStateDuringPIE = true;
 	FAutoConsoleVariableRef CVarShowDoorStateDuringPIE(
 		TEXT("p.Door.ShowDoorStateDuringPIE"),
@@ -63,15 +55,8 @@ ADoor::ADoor(const FObjectInitializer& ObjectInitializer)
 	DoorVisualizer = CreateEditorOnlyDefaultSubobject<UDoorEditorVisualizer>(TEXT("DoorVisualizer"));
 
 	// Draw PIE visualization
-	DoorBillboard = CreateEditorOnlyDefaultSubobject<UDoorEditorBillboard>(TEXT("DoorBillboard"));
-	DoorBillboard->SetupAttachment(RootComponent);
-	DoorBillboard->AddRelativeLocation(GetActorForwardVector() * 25.f + GetActorUpVector() * 100.f);
-	DoorBillboard->SetHiddenInGame(false);
-	DoorBillboard->SetVisibility(false);
-	DoorBillboard->bIsScreenSizeScaled = true;
-	DoorBillboard->ScreenSize = 0.1f;
-	DoorBillboard->SetRelativeScale3D_Direct(FVector(1.25f));
-	DoorBillboard->OnDoorStateChanged(this, false);
+	DoorSprite = CreateEditorOnlyDefaultSubobject<UDoorSpriteWidgetComponent>(TEXT("DoorSprite"));
+	DoorSprite->SetupAttachment(RootComponent);
 #endif
 }
 
@@ -80,17 +65,14 @@ void ADoor::BeginPlay()
 	Super::BeginPlay();
 
 #if WITH_EDITORONLY_DATA
-	if (DoorCVars::bShowDoorStateDuringPIE)
+	if (GetNetMode() != NM_DedicatedServer)
 	{
-		// Show the billboards immediately
-		DoorBillboard->OnDoorStateChanged(this, false);
-	}
-
-	// Bind the CVar delegate so we know if user toggled the drawing
-	const FConsoleVariableDelegate ShowDoorStateDuringPIEDelegate = FConsoleVariableDelegate::CreateUObject(this,
-		&ThisClass::OnToggleShowDoorStateDuringPIE);
+		// Bind the CVar delegate so we know if user toggled the drawing
+		const FConsoleVariableDelegate ShowDoorStateDuringPIEDelegate = FConsoleVariableDelegate::CreateUObject(this,
+			&ThisClass::OnToggleShowDoorStateDuringPIE);
 	
-	DoorCVars::CVarShowDoorStateDuringPIE->SetOnChangedCallback(ShowDoorStateDuringPIEDelegate);
+		DoorCVars::CVarShowDoorStateDuringPIE->SetOnChangedCallback(ShowDoorStateDuringPIEDelegate);
+	}
 #endif
 }
 
@@ -99,7 +81,7 @@ void ADoor::OnToggleShowDoorStateDuringPIE(IConsoleVariable* CVar)
 {
 	if (CVar)
 	{
-		DoorBillboard->SetVisibility(CVar->GetBool());
+		DoorSprite->SetVisibility(CVar->GetBool());
 	}
 }
 #endif
@@ -127,6 +109,13 @@ void ADoor::OnRep_DoorState()
 	EDoorDirection NewDoorDirection;
 	UDoorStatics::UnpackDoorState(RepDoorState, NewDoorState, NewDoorDirection);
 	SetDoorState(NewDoorState, NewDoorDirection);
+
+#if WITH_EDITORONLY_DATA
+	if (GetNetMode() != NM_DedicatedServer && DoorCVars::bShowDoorStateDuringPIE)
+	{
+		DoorSprite->OnRepDoorStateChanged(RepDoorState);
+	}
+#endif
 }
 
 void ADoor::SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirection)
@@ -223,9 +212,17 @@ void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState,
 		RepDoorState = UDoorStatics::PackDoorState(DoorState, DoorDirection);
 		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, RepDoorState, this);
 	}
-	
+
+	// Blueprint callback
 	K2_OnDoorStateChanged(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
 
+	// Delegate callback
+	if (OnDoorStateChangedDelegate.IsBound())
+	{
+		OnDoorStateChangedDelegate.Broadcast(this, OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
+	}
+
+	// Cosmetic notifies for VFX/SFX
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		K2_OnDoorStateChangedCosmetic(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
@@ -234,8 +231,7 @@ void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState,
 #if WITH_EDITORONLY_DATA
 	if (GetNetMode() != NM_DedicatedServer && DoorCVars::bShowDoorStateDuringPIE)
 	{
-		DoorBillboard->SetVisibility(true);
-		DoorBillboard->OnDoorStateChanged(this, false);
+		DoorSprite->SetVisibility(true);
 	}
 #endif
 }
@@ -570,10 +566,6 @@ void ADoor::HandleDoorPropertyChange()
 {
 	// Make sure we initialize the replicated property based on the default state
 	RepDoorState = UDoorStatics::PackDoorState(DoorState, DoorDirection);
-
-#if WITH_EDITORONLY_DATA
-	DoorBillboard->OnDoorStateChanged(this, false);
-#endif
 }
 
 void ADoor::PostLoad()

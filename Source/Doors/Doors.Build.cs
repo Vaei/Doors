@@ -25,6 +25,7 @@ public class Doors : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"NetCore",
+				"UMG",
 			}
 			);
 	}
