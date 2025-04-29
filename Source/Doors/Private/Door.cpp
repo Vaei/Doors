@@ -9,8 +9,8 @@
 #include "Net/Core/PushModel/PushModel.h"
 
 #if WITH_EDITORONLY_DATA
-#include "Components/DoorEditorVisualizer.h"
-#include "Components/DoorSpriteWidgetComponent.h"
+#include "Visualizers/DoorEditorVisualizer.h"
+#include "Visualizers/DoorSpriteWidgetComponent.h"
 #endif
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(Door)

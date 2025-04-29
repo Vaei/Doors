@@ -1,7 +1,7 @@
 ﻿// Copyright (c) Jared Taylor
 
 
-#include "Widgets/DoorSpriteWidget.h"
+#include "Visualizers/DoorSpriteWidget.h"
 
 #include "Door.h"
 

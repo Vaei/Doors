@@ -1,10 +1,10 @@
 ﻿// Copyright (c) Jared Taylor
 
 
-#include "Components/DoorSpriteWidgetComponent.h"
+#include "Visualizers/DoorSpriteWidgetComponent.h"
 
 #include "Door.h"
-#include "Widgets/DoorSpriteWidget.h"
+#include "Visualizers/DoorSpriteWidget.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(DoorSpriteWidgetComponent)
 
