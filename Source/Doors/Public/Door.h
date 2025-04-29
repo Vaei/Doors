@@ -13,10 +13,14 @@ class UDoorEditorVisualizer;
  * With replication for non-interaction (observed)
  */
 UCLASS()
-class DOORS_API ADoor : public AActor
+class DOORS_API ADoor : public AActor, public IGraspableOwner
 {
 	GENERATED_BODY()
 
+public:
+	/** IGraspableOwner interface */
+	virtual TArray<FGameplayAbilityTargetData*> GatherOptionalGraspTargetData(const FGameplayAbilityActorInfo* ActorInfo) const override final;
+	
 public:
 	/** Ties into FDoorVisualizer to draw editor visuals */
 	UPROPERTY()

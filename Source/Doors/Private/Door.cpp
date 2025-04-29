@@ -11,6 +11,17 @@
 #include UE_INLINE_GENERATED_CPP_BY_NAME(Door)
 
 
+TArray<FGameplayAbilityTargetData*> ADoor::GatherOptionalGraspTargetData(const FGameplayAbilityActorInfo* ActorInfo) const
+{
+	// Send data to interaction ability via Grasp
+	if (const AActor* AvatarActor = ActorInfo && ActorInfo->AvatarActor.IsValid() ? ActorInfo->AvatarActor.Get() : nullptr)
+	{
+		FDoorAbilityTargetData* DoorTargetData = new FDoorAbilityTargetData(GetDoorState(), GetDoorDirection(), GetDoorSide(AvatarActor));
+		return { DoorTargetData };
+	}
+	return {};
+}
+
 ADoor::ADoor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
