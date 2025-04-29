@@ -2,7 +2,7 @@
 
 #include "DoorsVisualizer.h"
 
-#include "Components/DoorEditorVisualizer.h"
+#include "Visualizers/DoorEditorVisualizer.h"
 #include "DoorVisualizer.h"
 #include "UnrealEdGlobals.h"
 #include "Editor/UnrealEdEngine.h"

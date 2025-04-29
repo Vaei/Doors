@@ -4,7 +4,7 @@
 #include "DoorVisualizer.h"
 
 #include "Door.h"
-#include "Components/DoorEditorVisualizer.h"
+#include "Visualizers/DoorEditorVisualizer.h"
 #include "DoorStatics.h"
 
 UTexture2D* FDoorVisualizer::ClosedOutwardSprite = nullptr;
