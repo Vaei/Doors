@@ -215,8 +215,10 @@ public:
 	/**
 	 * If true, Tick will be disabled when no longer in motion (transitioning)
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time", meta=(EditCondition="DoorAlphaMode!=EAlphaMode::Disabled", EditConditionHides))
 	bool bAutoDisableTickState = true;
+
+	bool ShouldAutoDisableTickState() const { return bAutoDisableTickState && DoorAlphaMode != EAlphaMode::Disabled; }
 	
 	/** How long the door takes to open in seconds */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time", meta=(EditCondition="DoorAlphaMode==EAlphaMode::Time", EditConditionHides, ClampMin="0", UIMin="0", UIMax="3", Delta="0.05", ForceUnits="seconds"))
@@ -266,6 +268,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time", meta=(EditCondition="DoorAlphaMode==EAlphaMode::InterpTo||DoorAlphaMode==EAlphaMode::InterpConstant", EditConditionHides, ClampMin="0", UIMin="0", UIMax="300", Delta="0.5", ForceUnits="x"))
 	float DoorCloseInwardInterpRate = 4.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time", meta=(EditCondition="DoorAlphaMode==EAlphaMode::InterpTo", EditConditionHides, ClampMin="0.0001", UIMin="0.0001", UIMax="1", Delta="0.01"))
+	float DoorInterpToTolerance = 0.01f;
+	
 #if WITH_EDITORONLY_DATA
 public:
 	UPROPERTY(EditDefaultsOnly, Category="Door Preview")

@@ -105,12 +105,6 @@ void ADoor::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (DoorAlphaMode == EAlphaMode::Disabled && bAutoDisableTickState)
-	{
-		SetActorTickEnabled(false);
-		return;
-	}
-	
 	TickDoor(DeltaTime);
 }
 
@@ -148,7 +142,7 @@ void ADoor::TickDoor_Implementation(float DeltaTime)
 				break;
 			default:
 				ensure(false);
-				if (bAutoDisableTickState)
+				if (ShouldAutoDisableTickState())
 				{
 					SetActorTickEnabled(false);
 				}
@@ -166,7 +160,14 @@ void ADoor::TickDoor_Implementation(float DeltaTime)
 		{
 			const float InterpRate = GetDoorInterpRate();
 			const float NewAlpha = FMath::FInterpTo(DoorAlpha, TargetAlpha, DeltaTime, InterpRate);
-			SetDoorAlpha(NewAlpha);
+			if (FMath::IsNearlyEqual(NewAlpha, TargetAlpha, DoorInterpToTolerance))
+			{
+				SetDoorAlpha(TargetAlpha);
+			}
+			else
+			{
+				SetDoorAlpha(NewAlpha);
+			}
 		}
 		break;
 	case EAlphaMode::Disabled:
@@ -365,7 +366,7 @@ void ADoor::OnDoorFinishedOpening()
 {
 	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorFinishedOpening: %s"), *GetRoleString(), *GetNameSafe(this));
 
-	if (bAutoDisableTickState) { SetActorTickEnabled(false); }
+	if (ShouldAutoDisableTickState()) { SetActorTickEnabled(false); }
 
 	LastStationaryTime = GetWorld()->GetTimeSeconds();
 
@@ -382,7 +383,7 @@ void ADoor::OnDoorFinishedClosing()
 {
 	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorFinishedClosing: %s"), *GetRoleString(), *GetNameSafe(this));
 
-	if (bAutoDisableTickState) { SetActorTickEnabled(false); }
+	if (ShouldAutoDisableTickState()) { SetActorTickEnabled(false); }
 	
 	LastStationaryTime = GetWorld()->GetTimeSeconds();
 
