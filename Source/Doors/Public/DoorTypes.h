@@ -110,6 +110,18 @@ enum class EDoorChangeType : uint8
 	Immediate			UMETA(ToolTip="Can be changed at any time, regardless of the door's state"),
 };
 
+/**
+ * Determine how alpha updates based on the door state
+ */
+UENUM(BlueprintType)
+enum class EAlphaMode : uint8
+{
+	Time				UMETA(ToolTip="Alpha is updated on tick over time"),
+	InterpConstant		UMETA(ToolTip="Alpha is interpolated on tick to the target value at a constant rate"),
+	InterpTo			UMETA(ToolTip="Alpha is interpolated on tick to the target value based on distance -- WARNING: Framerate dependent do not use if doors can collide with player characters!"),
+	Disabled			UMETA(ToolTip="Alpha will not update on tick and must be handled manually. Door will not tick."),
+};
+
 UENUM(BlueprintType)
 enum class EDoorValid : uint8
 {
