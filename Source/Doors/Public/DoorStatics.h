@@ -40,11 +40,12 @@ public:
 	 * @param NewDoorState The new resulting state of the door
 	 * @param NewDoorDirection The new resulting direction of the door
 	 * @param Motion The motion we want to use to interact with the door
+	 * @param FailReason The reason we failed to progress the door state
 	 * @return True if we have a valid state the door can change to
 	 */
 	UFUNCTION(BlueprintCallable, Category=Door)
 	static bool ProgressDoorState(const ADoor* Door, EDoorState DoorState, EDoorDirection DoorDirection,
-		EDoorSide DoorSide, EDoorState& NewDoorState, EDoorDirection& NewDoorDirection, EDoorMotion& Motion);
+		EDoorSide DoorSide, EDoorState& NewDoorState, EDoorDirection& NewDoorDirection, EDoorMotion& Motion, FGameplayTag& FailReason);
 
 	/** 
 	 * Get the target door state based on the current state of the door, when we want to interact with it

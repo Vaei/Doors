@@ -114,11 +114,27 @@ public:
 	UFUNCTION(BlueprintPure, Category=Door)
 	EReplicatedDoorState GetRepDoorState() const { return RepDoorState; }
 
+	/**
+	 * Call to set the door state
+	 * @param NewDoorState The new state of the door
+	 * @param NewDoorDirection The new direction of the door
+	 * @param Avatar The avatar that is interacting with the door -- only valid if activated by ability and NOT from replication
+	 * @param bClientSimulation If true, this change occurred from replication and not from predicted interaction
+	 */
 	UFUNCTION(BlueprintCallable, Category=Door, meta=(HidePin="bClientSimulation"))
-	void SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirection, bool bClientSimulation = false);
+	void SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirection, AActor* Avatar, bool bClientSimulation);
 
+	/**
+	 * Called when the door state changes
+	 * @param OldDoorState The previous state of the door
+	 * @param NewDoorState The new state of the door
+	 * @param OldDoorDirection The previous direction of the door
+	 * @param NewDoorDirection The new direction of the door
+	 * @param Avatar The avatar that is interacting with the door -- only valid if activated by ability and NOT from replication
+	 * @param bClientSimulation If true, this change occurred from replication and not from predicted interaction
+	 */
 	void OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection,
-		EDoorDirection NewDoorDirection, bool bClientSimulation);
+		EDoorDirection NewDoorDirection, AActor* Avatar, bool bClientSimulation);
 
 	/**
 	 * Called from ShouldDoorAbilityRespondToEvent() as an early extension point to override before any other checks occur
@@ -144,47 +160,58 @@ public:
 	/**
 	 * Callback for when the door state changes
 	 * If bClientSimulation is true, this change occurred from replication and not from predicted interaction
-	 * @param bClientSimulation If true this change occurred from replication and not from predicted interaction
+	 * @param OldDoorState The previous state of the door
+	 * @param NewDoorState The new state of the door
+	 * @param OldDoorDirection The previous direction of the door
+	 * @param NewDoorDirection The new direction of the door
+	 * @param Avatar The avatar that is interacting with the door -- only valid if activated by ability and NOT from replication
+	 * @param bClientSimulation If true, this change occurred from replication and not from predicted interaction
 	 */
 	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door State Changed"))
 	void K2_OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection,
-		EDoorDirection NewDoorDirection, bool bClientSimulation);
+		EDoorDirection NewDoorDirection, AActor* Avatar, bool bClientSimulation);
 
 	/**
 	 * Same as OnDoorStateChanged but only for cosmetic events, i.e. does not occur on dedicated server
 	 * If bClientSimulation is true, this change occurred from replication and not from predicted interaction
+	 * @param OldDoorState The previous state of the door
+	 * @param NewDoorState The new state of the door
+	 * @param OldDoorDirection The previous direction of the door
+	 * @param NewDoorDirection The new direction of the door
+	 * @param Avatar The avatar that is interacting with the door -- only valid if activated by ability and NOT from replication
+	 * @param bClientSimulation If true, this change occurred from replication and not from predicted interaction
 	 */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, Category=Door, meta=(DisplayName="On Door State Changed (Cosmetic)"))
 	void K2_OnDoorStateChangedCosmetic(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection,
-		EDoorDirection NewDoorDirection, bool bClientSimulation);
+		EDoorDirection NewDoorDirection, AActor* Avatar, bool bClientSimulation);
 	
 protected:
 	// Door State Events
 	
-	virtual void OnDoorFinishedOpening();
-	virtual void OnDoorFinishedClosing();
-	virtual void OnDoorStartedOpening();
-	virtual void OnDoorStartedClosing();
+	virtual void OnDoorFinishedOpening(bool bClientSimulation);
+	virtual void OnDoorFinishedClosing(bool bClientSimulation);
+	virtual void OnDoorStartedOpening(bool bClientSimulation);
+	virtual void OnDoorStartedClosing(bool bClientSimulation);
 
 	virtual void OnDoorInMotionInterrupted(EDoorState OldDoorState, EDoorState NewDoorState,
-		EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection);
+		EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection, bool bClientSimulation);
 
 	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door Finished Closing"))
-	void K2_OnDoorFinishedClosing();
+	void K2_OnDoorFinishedClosing(bool bClientSimulation);
 	
 	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door Finished Opening"))
-	void K2_OnDoorFinishedOpening();
+	void K2_OnDoorFinishedOpening(bool bClientSimulation);
 
 	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door Started Closing"))
-	void K2_OnDoorStartedClosing();
+	void K2_OnDoorStartedClosing(bool bClientSimulation);
 	
 	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door Started Opening"))
-	void K2_OnDoorStartedOpening();
+	void K2_OnDoorStartedOpening(bool bClientSimulation);
 
 	/** Called when the door is in motion, and was interacted with, causing it to change motion */
 	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door In Motion Interrupted"))
 	void K2_OnDoorInMotionInterrupted(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection,
-		EDoorDirection NewDoorDirection);
+		EDoorDirection NewDoorDirection, bool bClientSimulation);
 
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, Category=Door, meta=(DisplayName="On Door Finished Closing (Cosmetic)"))
 	void K2_OnDoorFinishedClosingCosmetic();
@@ -222,19 +249,19 @@ public:
 	
 	/** How long the door takes to open in seconds */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time", meta=(EditCondition="DoorAlphaMode==EAlphaMode::Time", EditConditionHides, ClampMin="0", UIMin="0", UIMax="3", Delta="0.05", ForceUnits="seconds"))
-	float DoorOpenOutwardTime = 1.f;
+	float DoorOpenOutwardTime = 0.5f;
 
 	/** How long the door takes to open in seconds */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time", meta=(EditCondition="DoorAlphaMode==EAlphaMode::Time", EditConditionHides, ClampMin="0", UIMin="0", UIMax="3", Delta="0.05", ForceUnits="seconds"))
-	float DoorOpenInwardTime = 1.f;
+	float DoorOpenInwardTime = 0.5f;
 
 	/** How long the door takes to close in seconds */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time", meta=(EditCondition="DoorAlphaMode==EAlphaMode::Time", EditConditionHides, ClampMin="0", UIMin="0", UIMax="3", Delta="0.05", ForceUnits="seconds"))
-	float DoorCloseOutwardTime = 1.f;
+	float DoorCloseOutwardTime = 0.5f;
 
 	/** How long the door takes to close in seconds */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time", meta=(EditCondition="DoorAlphaMode==EAlphaMode::Time", EditConditionHides, ClampMin="0", UIMin="0", UIMax="3", Delta="0.05", ForceUnits="seconds"))
-	float DoorCloseInwardTime = 1.f;
+	float DoorCloseInwardTime = 0.5f;
 	
 	/**
 	 * How fast the door interpolates to the target alpha
@@ -350,6 +377,13 @@ public:
 
 	void OnDoorAlphaChanged(float OldDoorAlpha, float NewDoorAlpha);
 
+	/**
+	 * Propagate the Door Alpha again, resulting in another call to OnDoorAlphaChanged
+	 * Useful when we want to keep pushing the door on tick despite no change in alpha, e.g. with sweep detection
+	 */
+	UFUNCTION(BlueprintCallable, Category=Door)
+	void TriggerOnDoorAlphaChanged();
+	
 	/**
 	 * Called when the door alpha changes
 	 * @param OldDoorAlpha The previous door alpha
@@ -514,10 +548,21 @@ public:
 	bool IsDoorOnStationaryCooldown() const;
 
 public:
+	/**
+	 * Call from ShouldAbilityRespondToEvent() to determine if the door ability should activate, i.e. we can interact with the door
+	 * @param Avatar The avatar that is interacting with the door
+	 * @param ClientDoorState The door state the client is trying to set
+	 * @param ClientDoorDirection The door direction the client is trying to set
+	 * @param ClientDoorSide The door side the client is claiming to be on
+	 * @param NewDoorState The resulting new door state to set
+	 * @param NewDoorDirection The resulting new door direction to set
+	 * @param DoorMotion The resulting door motion to set
+	 * @param FailReason The reason the door failed to respond to the event -- useful for UI purposes such as showing a Lock icon
+	 */
 	UFUNCTION(BlueprintCallable, BlueprintPure=false, Category=Door)
 	virtual bool ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState ClientDoorState,
 		EDoorDirection ClientDoorDirection, EDoorSide ClientDoorSide, EDoorState& NewDoorState,
-		EDoorDirection& NewDoorDirection, EDoorMotion& DoorMotion) const;
+		EDoorDirection& NewDoorDirection, EDoorMotion& DoorMotion, FGameplayTag& FailReason) const;
 
 public:
 	// General helpers

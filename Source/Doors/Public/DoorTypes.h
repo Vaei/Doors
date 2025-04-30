@@ -158,6 +158,7 @@ struct DOORS_API FDoorAbilityTargetData : public FGameplayAbilityTargetData
 	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
 	{
 		Ar << DoorState;
+		Ar << DoorSide;
 		return true;
 	}
 	
