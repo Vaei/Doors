@@ -81,4 +81,15 @@ public:
 
 	UFUNCTION(BlueprintPure, Category=Door)
 	static FString DoorStateSideToString(EDoorState State, EDoorSide Side);
+
+	UFUNCTION(BlueprintPure, Category=Door)
+	static FString DoorAccessToString(EDoorAccess Access);
+
+	UFUNCTION(BlueprintPure, Category=Door)
+	static FString DoorOpenDirectionToString(EDoorOpenDirection Direction);
+
+	UFUNCTION(BlueprintPure, Category=Door)
+	static FString DoorMotionToString(EDoorMotion Motion);
+
+	static FString GetRoleString(const AActor* Actor);
 };

@@ -380,3 +380,45 @@ FString UDoorStatics::DoorStateSideToString(EDoorState State, EDoorSide Side)
 	
 	return TEXT("Unknown");
 }
+
+FString UDoorStatics::DoorAccessToString(EDoorAccess Access)
+{
+	switch (Access)
+	{
+	case EDoorAccess::Bidirectional: return TEXT("Bidirectional");
+	case EDoorAccess::Behind: return TEXT("Behind");
+	case EDoorAccess::Front: return TEXT("Front");
+	default: return TEXT("Unknown");
+	}
+}
+
+FString UDoorStatics::DoorOpenDirectionToString(EDoorOpenDirection Direction)
+{
+	switch (Direction)
+	{
+	case EDoorOpenDirection::Bidirectional: return TEXT("Bidirectional");
+	case EDoorOpenDirection::Inward: return TEXT("Inward");
+	case EDoorOpenDirection::Outward: return TEXT("Outward");
+	case EDoorOpenDirection::Locked: return TEXT("Locked");
+	default: return TEXT("Unknown");
+	}
+}
+
+FString UDoorStatics::DoorMotionToString(EDoorMotion Motion)
+{
+	switch (Motion)
+	{
+	case EDoorMotion::Push: return TEXT("Push");
+	case EDoorMotion::Pull: return TEXT("Pull");
+	default: return TEXT("Unknown");
+	}
+}
+
+FString UDoorStatics::GetRoleString(const AActor* Actor)
+{
+	if (Actor->GetNetMode() == NM_Standalone || Actor->GetNetMode() == NM_MAX)
+	{
+		return TEXT("");
+	}
+	return Actor->HasAuthority() ? TEXT("[ Auth ]") : TEXT("[ Client ]");
+}
