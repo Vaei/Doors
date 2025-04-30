@@ -41,9 +41,8 @@ TArray<FGameplayAbilityTargetData*> ADoor::GatherOptionalGraspTargetData(const F
 ADoor::ADoor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = false;
-	PrimaryActorTick.bAllowTickOnDedicatedServer = false;
 	NetCullDistanceSquared = 25000000.0;  // 5000cm
 	bReplicates = true;
 
@@ -67,7 +66,28 @@ ADoor::ADoor(const FObjectInitializer& ObjectInitializer)
 
 void ADoor::BeginPlay()
 {
+#if WITH_EDITORONLY_DATA
+	ClearPreviewAnimation();
+#endif
+	
 	Super::BeginPlay();
+
+	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::BeginPlay Initialize Alpha: %.2f, %s"), *GetRoleString(), DoorAlpha, *GetName());
+
+	// Initialize the position of the door
+	OnDoorStateChanged(DoorState, DoorState, DoorDirection, DoorDirection, false);
+
+	// Initialize the alpha -- OnDoorStateChanged won't do this for these specific states
+	switch (DoorState)
+	{
+	case EDoorState::Closing:
+		SetDoorAlpha(DoorDirection == EDoorDirection::Inward ? -1.f : 1.f);
+		break;
+	case EDoorState::Opening:
+		SetDoorAlpha(0.f);
+		break;
+	default: break;
+	}
 
 #if WITH_EDITORONLY_DATA
 	if (GetNetMode() != NM_DedicatedServer)
@@ -81,7 +101,103 @@ void ADoor::BeginPlay()
 #endif
 }
 
+void ADoor::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (DoorAlphaMode == EAlphaMode::Disabled && bAutoDisableTickState)
+	{
+		SetActorTickEnabled(false);
+		return;
+	}
+	
+	TickDoor(DeltaTime);
+}
+
+void ADoor::TickDoor_Implementation(float DeltaTime)
+{
+	const float TargetAlpha = GetTargetDoorAlpha();
+	ensure(!FMath::IsNearlyEqual(DoorAlpha, TargetAlpha));
+
+	switch (DoorAlphaMode)
+	{
+	case EAlphaMode::Time:
+		{
+			// We want to increment the door alpha based on the time it takes to open/close
+			const float DoorTime = GetDoorTransitionTime();
+			const float Rate = 1.f / FMath::Max<float>(DoorTime, 0.001f);
+			const float Direction = DoorDirection == EDoorDirection::Inward ? -1.f : 1.f;
+			const float Time = Rate * Direction * DeltaTime;
+			switch (DoorState)
+			{
+			case EDoorState::Closing:
+				{
+					float NewAlpha = DoorAlpha - Time;
+					// Detect change of direction, i.e. overshot the closing
+					if (FMath::Sign(DoorAlpha) != FMath::Sign(NewAlpha))
+					{
+						NewAlpha = 0.f;
+					}
+					SetDoorAlpha(NewAlpha);
+				}
+				break;
+			case EDoorState::Opening:
+				{
+					SetDoorAlpha(DoorAlpha + Time);
+				}
+				break;
+			default:
+				ensure(false);
+				if (bAutoDisableTickState)
+				{
+					SetActorTickEnabled(false);
+				}
+			}
+		}
+		break;
+	case EAlphaMode::InterpConstant:
+		{
+			const float InterpRate = GetDoorInterpRate();
+			const float NewAlpha = FMath::FInterpConstantTo(DoorAlpha, TargetAlpha, DeltaTime, InterpRate);
+			SetDoorAlpha(NewAlpha);
+		}
+		break;
+	case EAlphaMode::InterpTo:
+		{
+			const float InterpRate = GetDoorInterpRate();
+			const float NewAlpha = FMath::FInterpTo(DoorAlpha, TargetAlpha, DeltaTime, InterpRate);
+			SetDoorAlpha(NewAlpha);
+		}
+		break;
+	case EAlphaMode::Disabled:
+		break;
+	}
+}
+
+float ADoor::GetTargetDoorAlpha() const
+{
+	return GetTargetDoorAlphaFromState(DoorState, DoorDirection);
+}
+
+float ADoor::GetTargetDoorAlphaFromState(EDoorState State, EDoorDirection Direction) const
+{
+	switch (State)
+	{
+	case EDoorState::Opening:
+	case EDoorState::Open:
+		switch (Direction)
+		{
+		case EDoorDirection::Outward: return 1.f;
+		case EDoorDirection::Inward: return -1.f;
+		}
+		break;
+	default: return 0.f;
+	}
+	return 0.f;
+}
+
 #if WITH_EDITORONLY_DATA
+
 void ADoor::OnToggleShowDoorStateDuringPIE(IConsoleVariable* CVar)
 {
 	if (CVar)
@@ -113,7 +229,7 @@ void ADoor::OnRep_DoorState()
 	EDoorState NewDoorState;
 	EDoorDirection NewDoorDirection;
 	UDoorStatics::UnpackDoorState(RepDoorState, NewDoorState, NewDoorDirection);
-	SetDoorState(NewDoorState, NewDoorDirection);
+	SetDoorState(NewDoorState, NewDoorDirection, true);
 
 #if WITH_EDITORONLY_DATA
 	if (GetNetMode() != NM_DedicatedServer && DoorCVars::bShowDoorStateDuringPIE)
@@ -123,7 +239,7 @@ void ADoor::OnRep_DoorState()
 #endif
 }
 
-void ADoor::SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirection)
+void ADoor::SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirection, bool bClientSimulation)
 {
 	if (DoorState != NewDoorState || DoorDirection != NewDoorDirection)
 	{
@@ -131,13 +247,17 @@ void ADoor::SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirectio
 		const EDoorDirection OldDoorDirection = DoorDirection;
 		DoorState = NewDoorState;
 		DoorDirection = NewDoorDirection;
-		OnDoorStateChanged(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
+		OnDoorStateChanged(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection, bClientSimulation);
 	}
 }
 
 void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection,
-	EDoorDirection NewDoorDirection)
+	EDoorDirection NewDoorDirection, bool bClientSimulation)
 {
+	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorStateChanged: %s → %s"), *GetRoleString(),
+		*UDoorStatics::DoorStateDirectionToString(OldDoorState, OldDoorDirection),
+		*UDoorStatics::DoorStateDirectionToString(NewDoorState, NewDoorDirection));
+	
 	// Update door access
 	if (bHasPendingDoorAccess)
 	{
@@ -219,7 +339,7 @@ void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState,
 	}
 
 	// Blueprint callback
-	K2_OnDoorStateChanged(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
+	K2_OnDoorStateChanged(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection, bClientSimulation);
 
 	// Delegate callback
 	if (OnDoorStateChangedDelegate.IsBound())
@@ -230,7 +350,7 @@ void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState,
 	// Cosmetic notifies for VFX/SFX
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		K2_OnDoorStateChangedCosmetic(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
+		K2_OnDoorStateChangedCosmetic(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection, bClientSimulation);
 	}
 
 #if WITH_EDITORONLY_DATA
@@ -243,14 +363,14 @@ void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState,
 
 void ADoor::OnDoorFinishedOpening()
 {
-	switch (DoorDirection)
-	{
-	case EDoorDirection::Outward:
-		break;
-	case EDoorDirection::Inward:
-		break;
-	}
-	
+	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorFinishedOpening: %s"), *GetRoleString(), *GetNameSafe(this));
+
+	if (bAutoDisableTickState) { SetActorTickEnabled(false); }
+
+	LastStationaryTime = GetWorld()->GetTimeSeconds();
+
+	SetDoorAlpha(GetTargetDoorAlpha());
+
 	K2_OnDoorFinishedOpening();
 	if (GetNetMode() != NM_DedicatedServer)
 	{
@@ -260,6 +380,14 @@ void ADoor::OnDoorFinishedOpening()
 
 void ADoor::OnDoorFinishedClosing()
 {
+	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorFinishedClosing: %s"), *GetRoleString(), *GetNameSafe(this));
+
+	if (bAutoDisableTickState) { SetActorTickEnabled(false); }
+	
+	LastStationaryTime = GetWorld()->GetTimeSeconds();
+
+	SetDoorAlpha(GetTargetDoorAlpha());
+	
 	K2_OnDoorFinishedClosing();
 	if (GetNetMode() != NM_DedicatedServer)
 	{
@@ -269,6 +397,15 @@ void ADoor::OnDoorFinishedClosing()
 
 void ADoor::OnDoorStartedOpening()
 {
+	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorStartedOpening: %s"), *GetRoleString(), *GetNameSafe(this));
+
+	if (DoorAlphaMode != EAlphaMode::Disabled)
+	{
+		SetActorTickEnabled(true);
+	}
+
+	LastInMotionTime = GetWorld()->GetTimeSeconds();
+	
 	K2_OnDoorStartedOpening();
 	if (GetNetMode() != NM_DedicatedServer)
 	{
@@ -278,6 +415,15 @@ void ADoor::OnDoorStartedOpening()
 
 void ADoor::OnDoorStartedClosing()
 {
+	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorStartedClosing: %s"), *GetRoleString(), *GetNameSafe(this));
+	
+	if (DoorAlphaMode != EAlphaMode::Disabled)
+	{
+		SetActorTickEnabled(true);
+	}
+	
+	LastInMotionTime = GetWorld()->GetTimeSeconds();
+
 	K2_OnDoorStartedClosing();
 	if (GetNetMode() != NM_DedicatedServer)
 	{
@@ -288,11 +434,164 @@ void ADoor::OnDoorStartedClosing()
 void ADoor::OnDoorInMotionInterrupted(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection,
 	EDoorDirection NewDoorDirection)
 {
+	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorInMotionInterrupted: %s"), *GetRoleString(), *GetNameSafe(this));
+	
 	K2_OnDoorInMotionInterrupted(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		K2_OnDoorInMotionInterruptedCosmetic(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
 	}
+}
+
+#if WITH_EDITORONLY_DATA
+
+void ADoor::StartPreviewAnimation(bool bIsLoop)
+{
+	if (!bPlayAnimationPreview)
+	{
+		ClearPreviewAnimation();
+		return;
+	}
+	
+	// Cache properties to restore after the preview
+	PreviewStateStart = DoorState;
+	PreviewDirectionStart = DoorDirection;
+	bWasPlayingAnimationPreview = true;
+	PreviewDeltaTime = 1.f / PreviewSimulationRate;
+
+	DoorState = PreviewState;
+	DoorDirection = PreviewDirection;
+	if (IsDoorStateOpenOrOpening(PreviewState))
+	{
+		DoorAlpha = 0.f;
+	}
+	else
+	{
+		DoorAlpha = PreviewDirection == EDoorDirection::Inward ? -1.f : 1.f;
+	}
+
+	// Set the timers to tick the preview
+	const float& StartDelay = bIsLoop ? PreviewLoopDelay : PreviewStartDelay;
+	if (StartDelay > 0.01f)
+	{
+		const FTimerDelegate StartPreviewDelegate = FTimerDelegate::CreateWeakLambda(this, [this]
+		{
+			if (bWasPlayingAnimationPreview)
+			{
+				// Start the preview
+				GetWorldTimerManager().SetTimer(TickPreviewTimerHandle, this, &ThisClass::TickPreviewAnimation, PreviewDeltaTime, true);
+			}
+		});
+
+		// Start the preview after a start delay
+		GetWorldTimerManager().SetTimer(StartPreviewTimerHandle, StartPreviewDelegate, StartDelay, false);
+	}
+	else
+	{
+		// Start the preview immediately
+		GetWorldTimerManager().SetTimer(TickPreviewTimerHandle, this, &ThisClass::TickPreviewAnimation, PreviewDeltaTime, true);
+	}
+}
+
+void ADoor::ClearPreviewAnimation()
+{
+	if (bWasPlayingAnimationPreview)
+	{
+		// Restore the door state
+		DoorState = PreviewStateStart;
+		DoorDirection = PreviewDirectionStart;
+		SetDoorAlpha(0.f);
+		bWasPlayingAnimationPreview = false;
+
+		GetWorldTimerManager().ClearTimer(StartPreviewTimerHandle);
+		GetWorldTimerManager().ClearTimer(TickPreviewTimerHandle);
+	}
+}
+
+void ADoor::TickPreviewAnimation()
+{
+	if (bWasPlayingAnimationPreview)
+	{
+		if (bPlayAnimationPreview)
+		{
+			TickDoor(PreviewDeltaTime);
+
+			if (IsDoorStationary())
+			{
+				ClearPreviewAnimation();
+
+				if (bLoopPreview)
+				{
+					StartPreviewAnimation(true);
+				}
+			}
+		}
+		else
+		{
+			ClearPreviewAnimation();
+		}
+	}
+}
+#endif
+
+float ADoor::GetDoorTransitionTime() const
+{
+	return GetDoorTransitionTimeFromState(DoorState, DoorDirection);
+}
+
+float ADoor::GetDoorTransitionTimeFromState(EDoorState State, EDoorDirection Direction) const
+{
+	switch (State)
+	{
+	case EDoorState::Opening:
+	case EDoorState::Open:
+		switch (Direction)
+		{
+		case EDoorDirection::Outward: return DoorOpenOutwardTime;
+		case EDoorDirection::Inward: return DoorOpenInwardTime;
+		}
+		break;
+	case EDoorState::Closing:
+	case EDoorState::Closed:
+		switch (Direction)
+		{
+		case EDoorDirection::Outward: return DoorCloseOutwardTime;
+		case EDoorDirection::Inward: return DoorCloseInwardTime;
+		}
+		break;
+	default: return 0.f;
+	}
+	return 0.f;
+}
+
+float ADoor::GetDoorInterpRate() const
+{
+	return GetDoorInterpRateFromState(DoorState, DoorDirection);
+}
+
+float ADoor::GetDoorInterpRateFromState(EDoorState State, EDoorDirection Direction) const
+{
+	switch (State)
+	{
+	case EDoorState::Opening:
+	case EDoorState::Open:
+		switch (Direction)
+		{
+	case EDoorDirection::Outward: return DoorOpenOutwardInterpRate;
+	case EDoorDirection::Inward: return DoorOpenInwardInterpRate;
+		}
+		break;
+	case EDoorState::Closing:
+	case EDoorState::Closed:
+		switch (Direction)
+		{
+	case EDoorDirection::Outward: return DoorCloseOutwardInterpRate;
+	case EDoorDirection::Inward: return DoorCloseInwardInterpRate;
+		}
+		break;
+	default: return 0.f;
+	}
+	return 0.f;
 }
 
 // -------------------------------------------------------------
@@ -308,12 +607,14 @@ bool ADoor::SetDoorAlpha(float NewDoorAlpha)
 	// Snap if nearly finished closing
 	if (IsDoorClosedOrClosing() && FMath::IsNearlyZero(NewDoorAlpha))
 	{
+		UE_LOG(LogDoors, VeryVerbose, TEXT("%s ADoor::SetDoorAlpha: Snap to 0"), *GetRoleString());
 		NewDoorAlpha = 0.f;
 	}
 
 	// Snap if nearly finished opening
 	if (IsDoorOpenOrOpening() && FMath::IsNearlyEqual(FMath::Abs<float>(NewDoorAlpha), 1.f))
 	{
+		UE_LOG(LogDoors, VeryVerbose, TEXT("%s ADoor::SetDoorAlpha: Snap to 1"), *GetRoleString());
 		NewDoorAlpha = FMath::Sign(NewDoorAlpha);
 	}
 
@@ -324,12 +625,25 @@ bool ADoor::SetDoorAlpha(float NewDoorAlpha)
 	return true;
 }
 
+float ADoor::GetDoorAlphaFromDoorTime(float DoorTime, EDoorState State, EDoorDirection Direction) const
+{
+	// Determine the alpha based on where DoorTime is in the range of 0 to TransitionTime
+	const float TransitionTime = GetDoorTransitionTimeFromState(State, Direction);
+	const float DirectionScalar = Direction == EDoorDirection::Inward ? -1.f : 1.f;
+	return FMath::Clamp<float>(DoorTime / TransitionTime, 0.f, 1.f) * DirectionScalar;
+}
+
+float ADoor::GetDoorTimeFromAlpha(float Alpha, EDoorState State, EDoorDirection Direction) const
+{
+	// Convert the alpha to time
+	const float TransitionTime = GetDoorTransitionTimeFromState(State, Direction);
+	return FMath::Lerp<float>(0.f, TransitionTime, FMath::Abs(Alpha));
+}
+
 void ADoor::OnDoorAlphaChanged(float OldDoorAlpha, float NewDoorAlpha)
 {
-#if !UE_BUILD_SHIPPING
-	UE_LOG(LogDoors, VeryVerbose, TEXT("OnDoorAlphaChanged: OldDoorAlpha: %f, NewDoorAlpha: %f"),
-		OldDoorAlpha, NewDoorAlpha);
-#endif
+	UE_LOG(LogDoors, VeryVerbose, TEXT("%s OnDoorAlphaChanged: OldDoorAlpha: %f, NewDoorAlpha: %f"),
+		*GetRoleString(), OldDoorAlpha, NewDoorAlpha);
 
 	// Finalize the door state if required
 	if (DoorState == EDoorState::Opening && FMath::IsNearlyEqual(GetDoorAlphaAbs(), 1.f))
@@ -341,7 +655,10 @@ void ADoor::OnDoorAlphaChanged(float OldDoorAlpha, float NewDoorAlpha)
 		SetDoorState(EDoorState::Closed, DoorDirection);
 	}
 
-	K2_OnDoorAlphaChanged(OldDoorAlpha, NewDoorAlpha);
+	const float DoorTime = DoorAlphaMode == EAlphaMode::Time ? GetDoorTimeFromAlpha(NewDoorAlpha, DoorState, DoorDirection) : 0.f;
+	const float TransitionTime = DoorAlphaMode == EAlphaMode::Time ? GetDoorTransitionTimeFromState(DoorState, DoorDirection) : 0.f;
+	
+	K2_OnDoorAlphaChanged(OldDoorAlpha, NewDoorAlpha, DoorState, DoorDirection, DoorTime, TransitionTime);
 }
 
 // -------------------------------------------------------------
@@ -386,6 +703,9 @@ bool ADoor::CanChangeDoorAccess_Implementation(EDoorAccess NewDoorAccess) const
 
 void ADoor::OnDoorAccessChanged(EDoorAccess OldDoorAccess, EDoorAccess NewDoorAccess)
 {
+	UE_LOG(LogDoors, Verbose, TEXT("%s OnDoorAccessChanged: OldDoorAccess: %s, NewDoorAccess: %s"),
+		*GetRoleString(), *UDoorStatics::DoorAccessToString(OldDoorAccess), *UDoorStatics::DoorAccessToString(NewDoorAccess));
+	
 	bHasPendingDoorAccess = false;
 
 	if (HasAuthority() && GetNetMode() != NM_Standalone)
@@ -438,6 +758,9 @@ bool ADoor::CanChangeDoorOpenDirection_Implementation(EDoorOpenDirection NewDoor
 
 void ADoor::OnDoorOpenDirectionChanged(EDoorOpenDirection OldDoorOpenDirection, EDoorOpenDirection NewDoorOpenDirection)
 {
+	UE_LOG(LogDoors, Verbose, TEXT("%s OnDoorOpenDirectionChanged: OldDoorOpenDirection: %s, NewDoorOpenDirection: %s"),
+		*GetRoleString(), *UDoorStatics::DoorOpenDirectionToString(OldDoorOpenDirection), *UDoorStatics::DoorOpenDirectionToString(NewDoorOpenDirection));
+	
 	bHasPendingDoorAccess = false;
 
 	if (HasAuthority() && GetNetMode() != NM_Standalone)
@@ -490,6 +813,9 @@ bool ADoor::CanChangeDoorOpenMotion_Implementation(EDoorMotion NewDoorOpenMotion
 
 void ADoor::OnDoorOpenMotionChanged(EDoorMotion OldDoorOpenMotion, EDoorMotion NewDoorOpenMotion)
 {
+	UE_LOG(LogDoors, Verbose, TEXT("%s OnDoorOpenMotionChanged: OldDoorOpenMotion: %s, NewDoorOpenMotion: %s"), *GetRoleString(),
+		*UDoorStatics::DoorMotionToString(OldDoorOpenMotion), *UDoorStatics::DoorMotionToString(NewDoorOpenMotion));
+	
 	if (HasAuthority() && GetNetMode() != NM_Standalone)
 	{
 		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, DoorOpenMotion, this);
@@ -498,14 +824,9 @@ void ADoor::OnDoorOpenMotionChanged(EDoorMotion OldDoorOpenMotion, EDoorMotion N
 	K2_OnDoorOpenMotionChanged(OldDoorOpenMotion, NewDoorOpenMotion);
 }
 
-void ADoor::StartInteractCooldown()
+bool ADoor::IsDoorOnMotionCooldown() const
 {
-	LastInteractTime = GetWorld()->GetTimeSeconds();
-}
-
-bool ADoor::IsDoorOnInteractCooldown() const
-{
-	return LastInteractTime >= 0.f && GetWorld()->TimeSince(LastInteractTime) < InteractCooldown;
+	return LastInMotionTime >= 0.f && GetWorld()->TimeSince(LastInMotionTime) < MotionCooldown;
 }
 
 bool ADoor::IsDoorOnStationaryCooldown() const
@@ -520,18 +841,21 @@ bool ADoor::ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState Cli
 	// General optional override
 	if (!CanDoorChangeToAnyState(Avatar))
 	{
+		UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::ShouldAbilityRespondToDoorEvent: CanDoorChangeToAnyState failed"), *GetRoleString());
 		return false;
 	}
 	
 	// Check if the door is on cooldown
 	if (IsDoorOnCooldown())
 	{
+		UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::ShouldAbilityRespondToDoorEvent: Door is on cooldown"), *GetRoleString());
 		return false;
 	}
 
 	// Check if the door is in motion
 	if (IsDoorInMotion() && !CanInteractWhileInMotion())
 	{
+		UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::ShouldAbilityRespondToDoorEvent: Door is in motion"), *GetRoleString());
 		return false;
 	}
 
@@ -541,6 +865,7 @@ bool ADoor::ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState Cli
 	// Check if we can use the client's door side
 	if (ClientDoorSide != CurrentDoorSide && !bTrustClientDoorSide)
 	{
+		UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::ShouldAbilityRespondToDoorEvent: Client door side is not trusted and does not match"), *GetRoleString());
 		return false;
 	}
 
@@ -554,6 +879,7 @@ bool ADoor::ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState Cli
 	// General optional override
 	if (!CanChangeDoorState(Avatar, DoorState, NewDoorState, DoorDirection, NewDoorDirection))
 	{
+		UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::ShouldAbilityRespondToDoorEvent: CanChangeDoorState failed"), *GetRoleString());
 		return false;
 	}
 
@@ -563,6 +889,11 @@ bool ADoor::ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState Cli
 EDoorSide ADoor::GetDoorSide(const AActor* Avatar) const
 {
 	return UDoorStatics::GetDoorSide(Avatar, this);
+}
+
+FString ADoor::GetRoleString() const
+{
+	return UDoorStatics::GetRoleString(this);
 }
 
 #if WITH_EDITOR
@@ -591,6 +922,34 @@ void ADoor::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChanged
 	{
 		HandleDoorPropertyChange();
 	}
+
+#if WITH_EDITORONLY_DATA
+	if (GetWorld() && GetWorld()->IsPreviewWorld())
+	{
+		if (PropertyName.IsEqual(GET_MEMBER_NAME_CHECKED(ThisClass, bPlayAnimationPreview)) ||
+			PropertyName.IsEqual(GET_MEMBER_NAME_CHECKED(ThisClass, PreviewState)) ||
+			PropertyName.IsEqual(GET_MEMBER_NAME_CHECKED(ThisClass, PreviewDirection)) ||
+			PropertyName.IsEqual(GET_MEMBER_NAME_CHECKED(ThisClass, PreviewSimulationRate)))
+		{
+			ClearPreviewAnimation();
+			
+			if (bPlayAnimationPreview)
+			{
+				StartPreviewAnimation(false);
+			}
+		}
+	}
+#endif
+}
+
+void ADoor::PostCDOCompiled(const FPostCDOCompiledContext& Context)
+{
+	Super::PostCDOCompiled(Context);
+
+#if WITH_EDITORONLY_DATA
+	bPlayAnimationPreview = false;
+	ClearPreviewAnimation();
+#endif
 }
 
 #endif

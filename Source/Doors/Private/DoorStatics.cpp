@@ -96,10 +96,18 @@ bool UDoorStatics::ProgressDoorState(const ADoor* Door, EDoorState DoorState, ED
 {
 	NewDoorState = Door->GetDoorState();
 	NewDoorDirection = Door->GetDoorDirection();
-	
-	// Door is not valid or locked
-	if (!IsValid(Door) || Door->GetDoorOpenDirection() == EDoorOpenDirection::Locked)
+
+	// Door is not valid
+	if (!IsValid(Door))
 	{
+		UE_LOG(LogDoors, Verbose, TEXT("UDoorStatics::ProgressDoorState: Door is not valid"));
+		return false;
+	}
+	
+	// Door is locked
+	if (Door->GetDoorOpenDirection() == EDoorOpenDirection::Locked)
+	{
+		UE_LOG(LogDoors, Verbose, TEXT("%s UDoorStatics::ProgressDoorState: Door is locked"), *GetRoleString(Door));
 		return false;
 	}
 
@@ -112,12 +120,14 @@ bool UDoorStatics::ProgressDoorState(const ADoor* Door, EDoorState DoorState, ED
 	case EDoorInteraction::Close:
 		if (Door->IsDoorClosedOrClosing())
 		{
+			UE_LOG(LogDoors, Verbose, TEXT("%s UDoorStatics::ProgressDoorState: Door is already closed"), *GetRoleString(Door));
 			return false;
 		}
 		break;
 	case EDoorInteraction::Open:
 		if (Door->IsDoorOpenOrOpening())
 		{
+			UE_LOG(LogDoors, Verbose, TEXT("%s UDoorStatics::ProgressDoorState: Door is already open"), *GetRoleString(Door));
 			return false;
 		}
 		break;
@@ -135,6 +145,7 @@ bool UDoorStatics::ProgressDoorState(const ADoor* Door, EDoorState DoorState, ED
 			// We can only interact from the back -- are we behind the door?
 			if (DoorSide != EDoorSide::Back)
 			{
+				UE_LOG(LogDoors, Verbose, TEXT("%s UDoorStatics::ProgressDoorState: Door access is behind, but we're in front"), *GetRoleString(Door));
 				return false;
 			}
 			break;
@@ -142,6 +153,7 @@ bool UDoorStatics::ProgressDoorState(const ADoor* Door, EDoorState DoorState, ED
 			// We can only interact from the front -- are we in front of the door?
 			if (DoorSide != EDoorSide::Front)
 			{
+				UE_LOG(LogDoors, Verbose, TEXT("%s UDoorStatics::ProgressDoorState: Door access is front, but we're behind"), *GetRoleString(Door));
 				return false;
 			}
 			break;
@@ -163,6 +175,9 @@ bool UDoorStatics::ProgressDoorState(const ADoor* Door, EDoorState DoorState, ED
 		// So we don't do anything here
 		// ---NewDoorDirection = NewDoorDirection;
 
+		UE_LOG(LogDoors, Verbose, TEXT("%s UDoorStatics::ProgressDoorState: Closing door %s from %s with %s"), *GetRoleString(Door),
+			*DoorDirectionToString(NewDoorDirection), *DoorSideToString(DoorSide), *DoorMotionToString(Motion));
+		
 		break;
 	case EDoorInteraction::Open:
 		// We are opening the door
@@ -201,6 +216,9 @@ bool UDoorStatics::ProgressDoorState(const ADoor* Door, EDoorState DoorState, ED
 		// If standing behind the door, and we're pulling, we want to pull it inward
 		NewDoorDirection = (DoorSide == EDoorSide::Front && Motion == EDoorMotion::Push) ||
 			(DoorSide == EDoorSide::Back && Motion == EDoorMotion::Pull) ? EDoorDirection::Inward : EDoorDirection::Outward;
+
+		UE_LOG(LogDoors, Verbose, TEXT("%s UDoorStatics::ProgressDoorState: Opening door %s from %s with %s"), *GetRoleString(Door),
+			*DoorDirectionToString(NewDoorDirection), *DoorSideToString(DoorSide), *DoorMotionToString(Motion));
 		
 		break;
 	}

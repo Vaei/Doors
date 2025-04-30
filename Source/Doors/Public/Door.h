@@ -14,6 +14,12 @@ class UDoorEditorVisualizer;
 /**
  * Net-Predicted Doors for interaction (interacting)
  * With replication for non-interaction (observed)
+ *
+ * Alpha and door state value correlation/range:
+ * +1.0 open outward ↤ 0.0 ↦ -1.0 open inward
+ *
+ * OpenOutward	+1.0 ⇄ Close 0.0
+ * OpenInward	-1.0 ⇄ Close 0.0
  */
 UCLASS()
 class DOORS_API ADoor : public AActor, public IGraspableOwner
@@ -64,7 +70,17 @@ public:
 	ADoor(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaTime) override;
 
+	UFUNCTION(BlueprintNativeEvent, Category=Door)
+	void TickDoor(float DeltaTime);
+
+	UFUNCTION(BlueprintPure, Category=Door)
+	float GetTargetDoorAlpha() const;
+	
+	UFUNCTION(BlueprintPure, Category=Door)
+	float GetTargetDoorAlphaFromState(EDoorState State, EDoorDirection Direction) const;
+	
 #if WITH_EDITORONLY_DATA
 	void OnToggleShowDoorStateDuringPIE(IConsoleVariable* CVar);
 #endif
@@ -98,10 +114,11 @@ public:
 	UFUNCTION(BlueprintPure, Category=Door)
 	EReplicatedDoorState GetRepDoorState() const { return RepDoorState; }
 
-	UFUNCTION(BlueprintCallable, Category=Door)
-	void SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirection);
+	UFUNCTION(BlueprintCallable, Category=Door, meta=(HidePin="bClientSimulation"))
+	void SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirection, bool bClientSimulation = false);
 
-	void OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection);
+	void OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection,
+		EDoorDirection NewDoorDirection, bool bClientSimulation);
 
 	/**
 	 * Called from ShouldDoorAbilityRespondToEvent() as an early extension point to override before any other checks occur
@@ -116,18 +133,30 @@ public:
 	 * @return false if you want to prevent an otherwise successful change in door state
 	 */
 	UFUNCTION(BlueprintNativeEvent, Category=Door)
-	bool CanChangeDoorState(const AActor* Avatar, EDoorState CurrentDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection) const;
-	virtual bool CanChangeDoorState_Implementation(const AActor* Avatar, EDoorState CurrentDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection) const
+	bool CanChangeDoorState(const AActor* Avatar, EDoorState CurrentDoorState, EDoorState NewDoorState,
+		EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection) const;
+	virtual bool CanChangeDoorState_Implementation(const AActor* Avatar, EDoorState CurrentDoorState,
+		EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection) const
 	{
 		return true;
 	}
 
+	/**
+	 * Callback for when the door state changes
+	 * If bClientSimulation is true, this change occurred from replication and not from predicted interaction
+	 * @param bClientSimulation If true this change occurred from replication and not from predicted interaction
+	 */
 	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door State Changed"))
-	void K2_OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection);
+	void K2_OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection,
+		EDoorDirection NewDoorDirection, bool bClientSimulation);
 
-	/** Same as OnDoorStateChanged but only for cosmetic events, i.e. does not occur on dedicated server */
+	/**
+	 * Same as OnDoorStateChanged but only for cosmetic events, i.e. does not occur on dedicated server
+	 * If bClientSimulation is true, this change occurred from replication and not from predicted interaction
+	 */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, Category=Door, meta=(DisplayName="On Door State Changed (Cosmetic)"))
-	void K2_OnDoorStateChangedCosmetic(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection);
+	void K2_OnDoorStateChangedCosmetic(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection,
+		EDoorDirection NewDoorDirection, bool bClientSimulation);
 	
 protected:
 	// Door State Events
@@ -137,7 +166,8 @@ protected:
 	virtual void OnDoorStartedOpening();
 	virtual void OnDoorStartedClosing();
 
-	virtual void OnDoorInMotionInterrupted(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection);
+	virtual void OnDoorInMotionInterrupted(EDoorState OldDoorState, EDoorState NewDoorState,
+		EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection);
 
 	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door Finished Closing"))
 	void K2_OnDoorFinishedClosing();
@@ -153,7 +183,8 @@ protected:
 
 	/** Called when the door is in motion, and was interacted with, causing it to change motion */
 	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door In Motion Interrupted"))
-	void K2_OnDoorInMotionInterrupted(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection);
+	void K2_OnDoorInMotionInterrupted(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection,
+		EDoorDirection NewDoorDirection);
 
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, Category=Door, meta=(DisplayName="On Door Finished Closing (Cosmetic)"))
 	void K2_OnDoorFinishedClosingCosmetic();
@@ -169,7 +200,131 @@ protected:
 
 	/** Called when the door is in motion, and was interacted with, causing it to change motion */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, Category=Door, meta=(DisplayName="On Door In Motion Interrupted (Cosmetic)"))
-	void K2_OnDoorInMotionInterruptedCosmetic(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection);
+	void K2_OnDoorInMotionInterruptedCosmetic(EDoorState OldDoorState, EDoorState NewDoorState,
+		EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection);
+
+public:
+	/**
+	 * Controls how Alpha updates
+	 * @warning InterpTo is framerate dependent and should be avoided if the door can collide with player characters
+	 * @warning Use InterpConstant instead
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time")
+	EAlphaMode DoorAlphaMode = EAlphaMode::Time;
+
+	/**
+	 * If true, Tick will be disabled when no longer in motion (transitioning)
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time")
+	bool bAutoDisableTickState = true;
+	
+	/** How long the door takes to open in seconds */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time", meta=(EditCondition="DoorAlphaMode==EAlphaMode::Time", EditConditionHides, ClampMin="0", UIMin="0", UIMax="3", Delta="0.05", ForceUnits="seconds"))
+	float DoorOpenOutwardTime = 1.f;
+
+	/** How long the door takes to open in seconds */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time", meta=(EditCondition="DoorAlphaMode==EAlphaMode::Time", EditConditionHides, ClampMin="0", UIMin="0", UIMax="3", Delta="0.05", ForceUnits="seconds"))
+	float DoorOpenInwardTime = 1.f;
+
+	/** How long the door takes to close in seconds */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time", meta=(EditCondition="DoorAlphaMode==EAlphaMode::Time", EditConditionHides, ClampMin="0", UIMin="0", UIMax="3", Delta="0.05", ForceUnits="seconds"))
+	float DoorCloseOutwardTime = 1.f;
+
+	/** How long the door takes to close in seconds */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time", meta=(EditCondition="DoorAlphaMode==EAlphaMode::Time", EditConditionHides, ClampMin="0", UIMin="0", UIMax="3", Delta="0.05", ForceUnits="seconds"))
+	float DoorCloseInwardTime = 1.f;
+	
+	/**
+	 * How fast the door interpolates to the target alpha
+	 * @warning InterpTo is framerate dependent and should be avoided if the door can collide with player characters
+	 * @warning Use InterpConstant instead
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time", meta=(EditCondition="DoorAlphaMode==EAlphaMode::InterpTo||DoorAlphaMode==EAlphaMode::InterpConstant", EditConditionHides, ClampMin="0", UIMin="0", UIMax="300", Delta="0.5", ForceUnits="x"))
+	float DoorOpenOutwardInterpRate = 4.f;
+
+	/**
+	 * How fast the door interpolates to the target alpha
+	 * @warning InterpTo is framerate dependent and should be avoided if the door can collide with player characters
+	 * @warning Use InterpConstant instead
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time", meta=(EditCondition="DoorAlphaMode==EAlphaMode::InterpTo||DoorAlphaMode==EAlphaMode::InterpConstant", EditConditionHides, ClampMin="0", UIMin="0", UIMax="300", Delta="0.5", ForceUnits="x"))
+	float DoorOpenInwardInterpRate = 4.f;
+
+	/**
+	 * How fast the door interpolates to the target alpha
+	 * @warning InterpTo is framerate dependent and should be avoided if the door can collide with player characters
+	 * @warning Use InterpConstant instead
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time", meta=(EditCondition="DoorAlphaMode==EAlphaMode::InterpTo||DoorAlphaMode==EAlphaMode::InterpConstant", EditConditionHides, ClampMin="0", UIMin="0", UIMax="300", Delta="0.5", ForceUnits="x"))
+	float DoorCloseOutwardInterpRate = 4.f;
+
+	/**
+	 * How fast the door interpolates to the target alpha
+	 * @warning InterpTo is framerate dependent and should be avoided if the door can collide with player characters
+	 * @warning Use InterpConstant instead
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time", meta=(EditCondition="DoorAlphaMode==EAlphaMode::InterpTo||DoorAlphaMode==EAlphaMode::InterpConstant", EditConditionHides, ClampMin="0", UIMin="0", UIMax="300", Delta="0.5", ForceUnits="x"))
+	float DoorCloseInwardInterpRate = 4.f;
+
+#if WITH_EDITORONLY_DATA
+public:
+	UPROPERTY(EditDefaultsOnly, Category="Door Preview")
+	bool bPlayAnimationPreview = false;
+
+	UPROPERTY(EditDefaultsOnly, Category="Door Preview", meta=(ValidEnumValues="Opening,Closing"))
+	EDoorState PreviewState = EDoorState::Opening;
+
+	UPROPERTY(EditDefaultsOnly, Category="Door Preview")
+	EDoorDirection PreviewDirection = EDoorDirection::Inward;
+
+	UPROPERTY(EditDefaultsOnly, Category="Door Preview", meta=(ClampMin="1", UIMin="1", UIMax="240", Delta="1", ForceUnits="hz"))
+	float PreviewSimulationRate = 60.f;
+
+	UPROPERTY(EditDefaultsOnly, Category="Door Preview", meta=(ClampMin="0", UIMin="0", UIMax="3", Delta="0.1", ForceUnits="s"))
+	float PreviewStartDelay = 0.15f;
+
+	UPROPERTY(EditDefaultsOnly, Category="Door Preview", meta=(ClampMin="0", UIMin="0", UIMax="3", Delta="0.1", ForceUnits="s"))
+	float PreviewLoopDelay = 0.35f;
+	
+	UPROPERTY(EditDefaultsOnly, Category="Door Preview")
+	bool bLoopPreview = true;
+
+	UPROPERTY(Transient)
+	bool bWasPlayingAnimationPreview = false;
+	
+	UPROPERTY(Transient)
+	EDoorState PreviewStateStart = EDoorState::Closed;
+
+	UPROPERTY(Transient)
+	EDoorDirection PreviewDirectionStart = EDoorDirection::Outward;
+
+	UPROPERTY(Transient)
+	float PreviewDeltaTime = 0.f;
+	
+	FTimerHandle StartPreviewTimerHandle;
+	FTimerHandle TickPreviewTimerHandle;
+	
+	void StartPreviewAnimation(bool bIsLoop);
+
+	void ClearPreviewAnimation();
+
+	UFUNCTION()
+	void TickPreviewAnimation();
+
+#endif
+	
+public:
+	UFUNCTION(BlueprintPure, Category=Door)
+	float GetDoorTransitionTime() const;
+
+	UFUNCTION(BlueprintPure, Category=Door)
+	float GetDoorTransitionTimeFromState(EDoorState State, EDoorDirection Direction) const;
+
+	UFUNCTION(BlueprintPure, Category=Door)
+	float GetDoorInterpRate() const;
+
+	UFUNCTION(BlueprintPure, Category=Door)
+	float GetDoorInterpRateFromState(EDoorState State, EDoorDirection Direction) const;
 	
 public:
 	/** @return True if the door alpha changed */
@@ -182,10 +337,26 @@ public:
 	UFUNCTION(BlueprintPure, Category=Door)
 	float GetDoorAlphaAbs() const { return FMath::Abs<float>(DoorAlpha); }
 
+	UFUNCTION(BlueprintPure, Category=Door)
+	float GetDoorAlphaFromDoorTime(float DoorTime, EDoorState State, EDoorDirection Direction) const;
+	
+	UFUNCTION(BlueprintPure, Category=Door)
+	float GetDoorTimeFromAlpha(float Alpha, EDoorState State, EDoorDirection Direction) const;
+
 	void OnDoorAlphaChanged(float OldDoorAlpha, float NewDoorAlpha);
 
+	/**
+	 * Called when the door alpha changes
+	 * @param OldDoorAlpha The previous door alpha
+	 * @param NewDoorAlpha The new door alpha
+	 * @param State The current door state
+	 * @param Direction The current door direction
+	 * @param DoorTime The door time based on the new alpha ONLY if DoorAlphaMode is set to Time
+	 * @param DoorTransitionTime The door transition time based on the new alpha ONLY if DoorAlphaMode is set to Time
+	 */
 	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door Alpha Changed"))
-	void K2_OnDoorAlphaChanged(float OldDoorAlpha, float NewDoorAlpha);
+	void K2_OnDoorAlphaChanged(float OldDoorAlpha, float NewDoorAlpha, EDoorState State, EDoorDirection Direction,
+		float DoorTime, float DoorTransitionTime);
 	
 protected:
 	// Door Access
@@ -303,18 +474,18 @@ public:
 	bool CanInteractWhileInMotion() const { return bCanInteractWhileInMotion; }
 
 public:
-	/** How long to wait before interaction since the door was last interacted with */
+	/** How long to wait before interaction since the door was last in motion (opening or closing, i.e. recently interacted with) */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Properties")
-	float InteractCooldown = 0.2f;
+	float MotionCooldown = 0.2f;
 
-	/** How long to wait before interaction since the door entered a stationary state after being in motion */
+	/** How long to wait before interaction since the door entered a stationary state (open or closed) after being in motion */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Properties")
 	float StationaryCooldown = 0.3f;
 	
 protected:
 	/** Last time the door was interacted with successfully */
 	UPROPERTY(BlueprintReadOnly, Category=Door)
-	float LastInteractTime = -1.f;
+	float LastInMotionTime = -1.f;
 
 	/** Last time the door entered a stationary state after being in motion */
 	UPROPERTY(BlueprintReadOnly, Category=Door)
@@ -325,18 +496,14 @@ protected:
 	float DoorAlpha = 0.f;
 
 public:
-	/** Call from your gameplay ability after door interaction succeeds to start the interact cooldown */
-	UFUNCTION(BlueprintCallable, Category=Door)
-	void StartInteractCooldown();
-	
 	UFUNCTION(BlueprintPure, Category=Door)
 	bool IsDoorOnCooldown() const
 	{
-		return IsDoorOnInteractCooldown() || IsDoorOnStationaryCooldown();
+		return IsDoorOnMotionCooldown() || IsDoorOnStationaryCooldown();
 	}
 
 	UFUNCTION(BlueprintPure, Category=Door)
-	bool IsDoorOnInteractCooldown() const;
+	bool IsDoorOnMotionCooldown() const;
 
 	UFUNCTION(BlueprintPure, Category=Door)
 	bool IsDoorOnStationaryCooldown() const;
@@ -407,10 +574,14 @@ public:
 		return  State == EDoorState::Closed || State == EDoorState::Closing;
 	}
 
+protected:
+	FString GetRoleString() const;
+
 public:
 #if WITH_EDITOR
 	virtual void HandleDoorPropertyChange();
 	virtual void PostLoad() override;
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostCDOCompiled(const FPostCDOCompiledContext& Context) override;
 #endif
 };
