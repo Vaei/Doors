@@ -13,6 +13,8 @@
 #include "Visualizers/DoorSpriteWidgetComponent.h"
 #endif
 
+#include "DoorTags.h"
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(Door)
 
 namespace DoorCVars
@@ -25,6 +27,15 @@ namespace DoorCVars
 		TEXT("If true, draw sprites showing the door state during PIE\n"),
 		ECVF_Default);
 #endif
+
+#if UE_ENABLE_DEBUG_DRAWING && WITH_EDITOR
+	static bool bDoorDebugServer = false;
+	FAutoConsoleVariableRef CVarDoorDebugServer(
+		TEXT("p.Door.DebugServer"),
+		bDoorDebugServer,
+		TEXT("Draw door bounds for the server during PIE.\n"),
+		ECVF_Default);
+#endif
 }
 
 TArray<FGameplayAbilityTargetData*> ADoor::GatherOptionalGraspTargetData(const FGameplayAbilityActorInfo* ActorInfo) const
@@ -32,7 +43,10 @@ TArray<FGameplayAbilityTargetData*> ADoor::GatherOptionalGraspTargetData(const F
 	// Send data to interaction ability via Grasp
 	if (const AActor* AvatarActor = ActorInfo && ActorInfo->AvatarActor.IsValid() ? ActorInfo->AvatarActor.Get() : nullptr)
 	{
-		FDoorAbilityTargetData* DoorTargetData = new FDoorAbilityTargetData(GetDoorState(), GetDoorDirection(), GetDoorSide(AvatarActor));
+		const EDoorState CurrentDoorState = GetDoorState();
+		const EDoorDirection CurrentDoorDirection = GetDoorDirection();
+		const EDoorSide CurrentDoorSide = GetDoorSide(AvatarActor);
+		auto* DoorTargetData = new FDoorAbilityTargetData(CurrentDoorState, CurrentDoorDirection, CurrentDoorSide);
 		return { DoorTargetData };
 	}
 	return {};
@@ -75,7 +89,7 @@ void ADoor::BeginPlay()
 	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::BeginPlay Initialize Alpha: %.2f, %s"), *GetRoleString(), DoorAlpha, *GetName());
 
 	// Initialize the position of the door
-	OnDoorStateChanged(DoorState, DoorState, DoorDirection, DoorDirection, false);
+	OnDoorStateChanged(DoorState, DoorState, DoorDirection, DoorDirection, nullptr, false);
 
 	// Initialize the alpha -- OnDoorStateChanged won't do this for these specific states
 	switch (DoorState)
@@ -106,6 +120,17 @@ void ADoor::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	TickDoor(DeltaTime);
+
+#if UE_ENABLE_DEBUG_DRAWING && WITH_EDITOR
+	if (HasAuthority() && GetWorld() && GetWorld()->IsPlayInEditor() && DoorCVars::bDoorDebugServer)
+	{
+		const FBox Box = GetComponentsBoundingBox();
+		const FVector Extents = Box.GetExtent();
+		const FVector Origin = Box.GetCenter();
+		DrawDebugBox(GetWorld(), Origin, Extents, GetActorQuat(), FColor::Orange,
+			false, -1.f, SDPG_Foreground, 1.f);
+	}
+#endif
 }
 
 void ADoor::TickDoor_Implementation(float DeltaTime)
@@ -230,7 +255,7 @@ void ADoor::OnRep_DoorState()
 	EDoorState NewDoorState;
 	EDoorDirection NewDoorDirection;
 	UDoorStatics::UnpackDoorState(RepDoorState, NewDoorState, NewDoorDirection);
-	SetDoorState(NewDoorState, NewDoorDirection, true);
+	SetDoorState(NewDoorState, NewDoorDirection, nullptr, true);
 
 #if WITH_EDITORONLY_DATA
 	if (GetNetMode() != NM_DedicatedServer && DoorCVars::bShowDoorStateDuringPIE)
@@ -240,7 +265,7 @@ void ADoor::OnRep_DoorState()
 #endif
 }
 
-void ADoor::SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirection, bool bClientSimulation)
+void ADoor::SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirection, AActor* Avatar, bool bClientSimulation)
 {
 	if (DoorState != NewDoorState || DoorDirection != NewDoorDirection)
 	{
@@ -248,12 +273,12 @@ void ADoor::SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirectio
 		const EDoorDirection OldDoorDirection = DoorDirection;
 		DoorState = NewDoorState;
 		DoorDirection = NewDoorDirection;
-		OnDoorStateChanged(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection, bClientSimulation);
+		OnDoorStateChanged(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection, Avatar, bClientSimulation);
 	}
 }
 
 void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection,
-	EDoorDirection NewDoorDirection, bool bClientSimulation)
+	EDoorDirection NewDoorDirection, AActor* Avatar, bool bClientSimulation)
 {
 	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorStateChanged: %s → %s"), *GetRoleString(),
 		*UDoorStatics::DoorStateDirectionToString(OldDoorState, OldDoorDirection),
@@ -313,23 +338,23 @@ void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState,
 	// Helper events
 	if (NewDoorState == EDoorState::Closed)
 	{
-		OnDoorFinishedClosing();
+		OnDoorFinishedClosing(bClientSimulation);
 	}
 	else if (NewDoorState == EDoorState::Open)
 	{
-		OnDoorFinishedOpening();
+		OnDoorFinishedOpening(bClientSimulation);
 	}
 	else if (NewDoorState == EDoorState::Opening)
 	{
-		OnDoorStartedOpening();
+		OnDoorStartedOpening(bClientSimulation);
 	}
 	else if (NewDoorState == EDoorState::Closing)
 	{
-		OnDoorStartedClosing();
+		OnDoorStartedClosing(bClientSimulation);
 	}
 	else if (IsDoorStateInMotion(OldDoorState))
 	{
-		OnDoorInMotionInterrupted(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
+		OnDoorInMotionInterrupted(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection, bClientSimulation);
 	}
 
 	// Replicate the door state to clients
@@ -340,7 +365,7 @@ void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState,
 	}
 
 	// Blueprint callback
-	K2_OnDoorStateChanged(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection, bClientSimulation);
+	K2_OnDoorStateChanged(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection, Avatar, bClientSimulation);
 
 	// Delegate callback
 	if (OnDoorStateChangedDelegate.IsBound())
@@ -351,7 +376,7 @@ void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState,
 	// Cosmetic notifies for VFX/SFX
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		K2_OnDoorStateChangedCosmetic(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection, bClientSimulation);
+		K2_OnDoorStateChangedCosmetic(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection, Avatar, bClientSimulation);
 	}
 
 #if WITH_EDITORONLY_DATA
@@ -362,7 +387,7 @@ void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState,
 #endif
 }
 
-void ADoor::OnDoorFinishedOpening()
+void ADoor::OnDoorFinishedOpening(bool bClientSimulation)
 {
 	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorFinishedOpening: %s"), *GetRoleString(), *GetNameSafe(this));
 
@@ -372,14 +397,14 @@ void ADoor::OnDoorFinishedOpening()
 
 	SetDoorAlpha(GetTargetDoorAlpha());
 
-	K2_OnDoorFinishedOpening();
+	K2_OnDoorFinishedOpening(bClientSimulation);
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		K2_OnDoorFinishedOpeningCosmetic();
 	}
 }
 
-void ADoor::OnDoorFinishedClosing()
+void ADoor::OnDoorFinishedClosing(bool bClientSimulation)
 {
 	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorFinishedClosing: %s"), *GetRoleString(), *GetNameSafe(this));
 
@@ -389,14 +414,14 @@ void ADoor::OnDoorFinishedClosing()
 
 	SetDoorAlpha(GetTargetDoorAlpha());
 	
-	K2_OnDoorFinishedClosing();
+	K2_OnDoorFinishedClosing(bClientSimulation);
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		K2_OnDoorFinishedClosingCosmetic();
 	}
 }
 
-void ADoor::OnDoorStartedOpening()
+void ADoor::OnDoorStartedOpening(bool bClientSimulation)
 {
 	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorStartedOpening: %s"), *GetRoleString(), *GetNameSafe(this));
 
@@ -407,14 +432,14 @@ void ADoor::OnDoorStartedOpening()
 
 	LastInMotionTime = GetWorld()->GetTimeSeconds();
 	
-	K2_OnDoorStartedOpening();
+	K2_OnDoorStartedOpening(bClientSimulation);
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		K2_OnDoorStartedOpeningCosmetic();
 	}
 }
 
-void ADoor::OnDoorStartedClosing()
+void ADoor::OnDoorStartedClosing(bool bClientSimulation)
 {
 	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorStartedClosing: %s"), *GetRoleString(), *GetNameSafe(this));
 	
@@ -425,7 +450,7 @@ void ADoor::OnDoorStartedClosing()
 	
 	LastInMotionTime = GetWorld()->GetTimeSeconds();
 
-	K2_OnDoorStartedClosing();
+	K2_OnDoorStartedClosing(bClientSimulation);
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		K2_OnDoorStartedClosingCosmetic();
@@ -433,11 +458,11 @@ void ADoor::OnDoorStartedClosing()
 }
 
 void ADoor::OnDoorInMotionInterrupted(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection,
-	EDoorDirection NewDoorDirection)
+	EDoorDirection NewDoorDirection, bool bClientSimulation)
 {
 	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorInMotionInterrupted: %s"), *GetRoleString(), *GetNameSafe(this));
 	
-	K2_OnDoorInMotionInterrupted(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
+	K2_OnDoorInMotionInterrupted(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection, bClientSimulation);
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		K2_OnDoorInMotionInterruptedCosmetic(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection);
@@ -649,17 +674,22 @@ void ADoor::OnDoorAlphaChanged(float OldDoorAlpha, float NewDoorAlpha)
 	// Finalize the door state if required
 	if (DoorState == EDoorState::Opening && FMath::IsNearlyEqual(GetDoorAlphaAbs(), 1.f))
 	{
-		SetDoorState(EDoorState::Open, DoorDirection);
+		SetDoorState(EDoorState::Open, DoorDirection, nullptr, false);
 	}
 	else if (DoorState == EDoorState::Closing && FMath::IsNearlyZero(GetDoorAlphaAbs()))
 	{
-		SetDoorState(EDoorState::Closed, DoorDirection);
+		SetDoorState(EDoorState::Closed, DoorDirection, nullptr, false);
 	}
 
 	const float DoorTime = DoorAlphaMode == EAlphaMode::Time ? GetDoorTimeFromAlpha(NewDoorAlpha, DoorState, DoorDirection) : 0.f;
 	const float TransitionTime = DoorAlphaMode == EAlphaMode::Time ? GetDoorTransitionTimeFromState(DoorState, DoorDirection) : 0.f;
 	
 	K2_OnDoorAlphaChanged(OldDoorAlpha, NewDoorAlpha, DoorState, DoorDirection, DoorTime, TransitionTime);
+}
+
+void ADoor::TriggerOnDoorAlphaChanged()
+{
+	OnDoorAlphaChanged(DoorAlpha, DoorAlpha);
 }
 
 // -------------------------------------------------------------
@@ -837,11 +867,15 @@ bool ADoor::IsDoorOnStationaryCooldown() const
 
 bool ADoor::ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState ClientDoorState,
 	EDoorDirection ClientDoorDirection, EDoorSide ClientDoorSide, EDoorState& NewDoorState,
-	EDoorDirection& NewDoorDirection, EDoorMotion& DoorMotion) const
+	EDoorDirection& NewDoorDirection, EDoorMotion& DoorMotion, FGameplayTag& FailReason) const
 {
+	// Output a fail reason for UI to respond to, e.g. a locked icon
+	FailReason = FGameplayTag::EmptyTag;
+	
 	// General optional override
 	if (!CanDoorChangeToAnyState(Avatar))
 	{
+		FailReason = FDoorTags::Door_Fail_CanDoorChangeToAnyState;
 		UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::ShouldAbilityRespondToDoorEvent: CanDoorChangeToAnyState failed"), *GetRoleString());
 		return false;
 	}
@@ -849,6 +883,7 @@ bool ADoor::ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState Cli
 	// Check if the door is on cooldown
 	if (IsDoorOnCooldown())
 	{
+		FailReason = FDoorTags::Door_Fail_OnCooldown;
 		UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::ShouldAbilityRespondToDoorEvent: Door is on cooldown"), *GetRoleString());
 		return false;
 	}
@@ -856,6 +891,7 @@ bool ADoor::ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState Cli
 	// Check if the door is in motion
 	if (IsDoorInMotion() && !CanInteractWhileInMotion())
 	{
+		FailReason = FDoorTags::Door_Fail_InMotion;
 		UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::ShouldAbilityRespondToDoorEvent: Door is in motion"), *GetRoleString());
 		return false;
 	}
@@ -866,13 +902,14 @@ bool ADoor::ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState Cli
 	// Check if we can use the client's door side
 	if (ClientDoorSide != CurrentDoorSide && !bTrustClientDoorSide)
 	{
+		FailReason = FDoorTags::Door_Fail_ClientDoorSide;
 		UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::ShouldAbilityRespondToDoorEvent: Client door side is not trusted and does not match"), *GetRoleString());
 		return false;
 	}
 
 	// Check if the client can interact with the door
 	if (!UDoorStatics::ProgressDoorState(this, ClientDoorState, ClientDoorDirection,
-		ClientDoorSide, NewDoorState, NewDoorDirection, DoorMotion))
+		ClientDoorSide, NewDoorState, NewDoorDirection, DoorMotion, FailReason))
 	{
 		return false;
 	}
@@ -880,6 +917,7 @@ bool ADoor::ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState Cli
 	// General optional override
 	if (!CanChangeDoorState(Avatar, DoorState, NewDoorState, DoorDirection, NewDoorDirection))
 	{
+		FailReason = FDoorTags::Door_Fail_CanChangeDoorState;
 		UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::ShouldAbilityRespondToDoorEvent: CanChangeDoorState failed"), *GetRoleString());
 		return false;
 	}
