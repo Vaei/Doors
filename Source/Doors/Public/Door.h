@@ -60,7 +60,7 @@ protected:
 	EDoorDirection DoorDirection = EDoorDirection::Outward;
 	
 	UPROPERTY(ReplicatedUsing=OnRep_DoorState)
-	EReplicatedDoorState RepDoorState = EReplicatedDoorState::ClosedOutward;
+	uint8 RepDoorState;
 
 	/** Disabling replication can produce better results for automatic doors */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Door)
@@ -145,7 +145,10 @@ public:
 	EDoorDirection GetDoorDirection() const { return DoorDirection; }
 
 	UFUNCTION(BlueprintPure, Category=Door)
-	EReplicatedDoorState GetRepDoorState() const { return RepDoorState; }
+	void GetRepDoorState(EDoorState& OutDoorState, EDoorDirection& OutDoorDirection) const;
+
+	UFUNCTION(BlueprintPure, Category=Door)
+	uint8 GetRepDoorStatePackedBits() const { return RepDoorState; }
 
 	/**
 	 * Call to set the door state

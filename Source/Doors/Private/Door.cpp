@@ -260,7 +260,7 @@ void ADoor::OnRep_DoorState()
 #if WITH_EDITORONLY_DATA
 	if (GetNetMode() != NM_DedicatedServer && DoorCVars::bShowDoorStateDuringPIE)
 	{
-		DoorSprite->OnRepDoorStateChanged(RepDoorState);
+		DoorSprite->OnRepDoorStateChanged(NewDoorState, NewDoorDirection);
 	}
 #endif
 }
@@ -276,6 +276,11 @@ void ADoor::SetDoorStateReplicationEnabled(bool bEnabled, bool bReplicateNow)
 			ForceNetUpdate();
 		}
 	}
+}
+
+void ADoor::GetRepDoorState(EDoorState& OutDoorState, EDoorDirection& OutDoorDirection) const
+{
+	UDoorStatics::UnpackDoorState(RepDoorState, OutDoorState, OutDoorDirection);
 }
 
 void ADoor::SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirection, AActor* Avatar, bool bClientSimulation)

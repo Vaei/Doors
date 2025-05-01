@@ -29,6 +29,6 @@ public:
 		const EDoorDirection& OldDoorDirection, const EDoorDirection& NewDoorDirection);
 
 	UFUNCTION(BlueprintImplementableEvent, Category=Door)
-	void OnRepDoorStateChanged(EReplicatedDoorState RepDoorState);
+	void OnRepDoorStateChanged(EDoorState NewDoorState, EDoorDirection NewDoorDirection);
 #endif
 };

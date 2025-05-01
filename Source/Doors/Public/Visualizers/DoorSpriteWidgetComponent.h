@@ -21,6 +21,6 @@ public:
 	
 	virtual void InitWidget() override;
 	
-	void OnRepDoorStateChanged(EReplicatedDoorState RepDoorState) const;
+	void OnRepDoorStateChanged(EDoorState DoorState, EDoorDirection DoorDirection) const;
 #endif
 };
