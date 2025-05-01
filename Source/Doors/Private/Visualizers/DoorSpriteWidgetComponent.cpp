@@ -34,11 +34,11 @@ void UDoorSpriteWidgetComponent::InitWidget()
 	}
 }
 
-void UDoorSpriteWidgetComponent::OnRepDoorStateChanged(EReplicatedDoorState RepDoorState) const
+void UDoorSpriteWidgetComponent::OnRepDoorStateChanged(EDoorState DoorState, EDoorDirection DoorDirection) const
 {
 	if (DoorWidget.IsValid())
 	{
-		DoorWidget->OnRepDoorStateChanged(RepDoorState);
+		DoorWidget->OnRepDoorStateChanged(DoorState, DoorDirection);
 	}
 }
 #endif

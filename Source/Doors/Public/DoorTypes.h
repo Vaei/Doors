@@ -41,47 +41,6 @@ enum class EDoorSide : uint8
 };
 
 /**
- * Packing and unpacking occurs pre-post-replication
- * This is difficult to visually parse, but we don't want to replicate two uint8 for no reason
- */
-UENUM()
-enum class EReplicatedDoorState : uint8
-{
-	ClosedOutward,
-	ClosedInward,
-	OpeningOutward,
-	OpeningInward,
-	OpenOutward,
-	OpenInward,
-	ClosingOutward,
-	ClosingInward,
-};
-
-/**
- * Complete packing for target data including the door sides
- */
-UENUM()
-enum class ETargetDataDoorState : uint8
-{
-	ClosedOutwardFront,
-	ClosedOutwardBack,
-	ClosedInwardFront,
-	ClosedInwardBack,
-	OpeningOutwardFront,
-	OpeningOutwardBack,
-	OpeningInwardFront,
-	OpeningInwardBack,
-	OpenOutwardFront,
-	OpenOutwardBack,
-	OpenInwardFront,
-	OpenInwardBack,
-	ClosingOutwardFront,
-	ClosingOutwardBack,
-	ClosingInwardFront,
-	ClosingInwardBack,
-};
-
-/**
  * Which way the door can open
  */
 UENUM(BlueprintType)
@@ -168,14 +127,14 @@ struct DOORS_API FDoorAbilityTargetData : public FGameplayAbilityTargetData
 	GENERATED_BODY()
 
 	FDoorAbilityTargetData()
-		: PackedState(ETargetDataDoorState::ClosedOutwardFront)
+		: PackedState(0)
 	{}
 
 	FDoorAbilityTargetData(const EDoorState& InDoorState, const EDoorDirection& InDoorDirection,
 		const EDoorSide& InDoorSide);
 
 	UPROPERTY(BlueprintReadOnly, Category=Character)
-	ETargetDataDoorState PackedState;
+	uint8 PackedState;
 
 	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
 	{

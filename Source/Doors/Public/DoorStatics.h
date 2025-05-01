@@ -20,16 +20,16 @@ class DOORS_API UDoorStatics : public UBlueprintFunctionLibrary
 
 public:
 	/** Pack the door state and door direction into a single uint8 for replication */
-	static EReplicatedDoorState PackDoorState(EDoorState DoorState, EDoorDirection DoorDirection);
+	static uint8 PackDoorState(EDoorState DoorState, EDoorDirection DoorDirection);
 	
 	/** Unpack the door state and door direction from a single uint8 from replication */
-	static void UnpackDoorState(EReplicatedDoorState DoorStatePacked, EDoorState& OutDoorState, EDoorDirection& OutDoorDirection);
+	static void UnpackDoorState(uint8 DoorStatePacked, EDoorState& OutDoorState, EDoorDirection& OutDoorDirection);
 
 	/** Pack the door state and door direction and door side into a single uint8 for replication */
-	static ETargetDataDoorState PackTargetDataDoorState(EDoorState DoorState, EDoorDirection DoorDirection, EDoorSide DoorSide);
+	static uint8 PackTargetDataDoorState(EDoorState DoorState, EDoorDirection DoorDirection, EDoorSide DoorSide);
 	
 	/** Unpack the door state and door direction from a single uint8 from replication */
-	static void UnpackTargetDataDoorState(ETargetDataDoorState DoorStatePacked, EDoorState& OutDoorState,
+	static void UnpackTargetDataDoorState(uint8 DoorStatePacked, EDoorState& OutDoorState,
 		EDoorDirection& OutDoorDirection, EDoorSide& OutDoorSide);
 	
 	/** Unpack any data sent from the gameplay ability event data payload */
