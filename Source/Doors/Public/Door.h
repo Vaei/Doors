@@ -62,10 +62,17 @@ protected:
 	UPROPERTY(ReplicatedUsing=OnRep_DoorState)
 	EReplicatedDoorState RepDoorState = EReplicatedDoorState::ClosedOutward;
 
+	/** Disabling replication can produce better results for automatic doors */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Door)
+	bool bEnableDoorStateReplication = true;
+
+	/** Last avatar that interacted with the door */
+	TWeakObjectPtr<AActor> LastAvatar;
+
 public:
 	UPROPERTY(BlueprintAssignable, Category=Door)
 	FOnDoorStateChanged OnDoorStateChangedDelegate;
-	
+
 public:
 	ADoor(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
@@ -91,6 +98,14 @@ public:
 	void OnRep_DoorState();
 
 	/**
+	 * Set the door state replication enabled or disabled
+	 * @param bEnabled If true, the door state will be replicated to clients
+	 * @param bReplicateNow If true, the current door state will be replicated to clients immediately
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category=Door)
+	void SetDoorStateReplicationEnabled(bool bEnabled, bool bReplicateNow = true);
+
+	/**
 	 * Optionally override this to return a location that reflects the door mesh in its current state
 	 * to allow GetDoorSide to accurately determine which side of the door the avatar is on, while the door is open
 	 */
@@ -102,6 +117,24 @@ public:
 	FTransform GetDoorTransform() const
 	{
 		return { GetActorTransform().Rotator(), GetDoorLocation(), GetActorScale3D() };
+	}
+
+public:
+	/**
+	 * Last avatar that interacted with the door. Must be explicitly saved.
+	 * Not replicated -- if client activate ability fails will not be sent to the server.
+	 */
+	UFUNCTION(BlueprintPure, Category=Door)
+	AActor* GetLastAvatar() const { return LastAvatar.IsValid() ? LastAvatar.Get() : nullptr; }
+
+	/**
+	 * Used to save the last avatar if required
+	 * Not replicated -- if client activate ability fails will not be sent to the server.
+	 */
+	UFUNCTION(BlueprintCallable, Category=Door)
+	void SetLastAvatar(AActor* Avatar)
+	{
+		LastAvatar = Avatar;
 	}
 	
 public:
@@ -118,11 +151,11 @@ public:
 	 * Call to set the door state
 	 * @param NewDoorState The new state of the door
 	 * @param NewDoorDirection The new direction of the door
-	 * @param Avatar The avatar that is interacting with the door -- only valid if activated by ability and NOT from replication
+	 * @param Avatar The avatar that is interacting with the door -- not valid from replication
 	 * @param bClientSimulation If true, this change occurred from replication and not from predicted interaction
 	 */
 	UFUNCTION(BlueprintCallable, Category=Door, meta=(HidePin="bClientSimulation"))
-	void SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirection, AActor* Avatar, bool bClientSimulation);
+	void SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirection, AActor* Avatar, bool bClientSimulation = false);
 
 	/**
 	 * Called when the door state changes
@@ -130,7 +163,7 @@ public:
 	 * @param NewDoorState The new state of the door
 	 * @param OldDoorDirection The previous direction of the door
 	 * @param NewDoorDirection The new direction of the door
-	 * @param Avatar The avatar that is interacting with the door -- only valid if activated by ability and NOT from replication
+	 * @param Avatar The avatar that is interacting with the door -- not valid from replication
 	 * @param bClientSimulation If true, this change occurred from replication and not from predicted interaction
 	 */
 	void OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState, EDoorDirection OldDoorDirection,
@@ -140,7 +173,7 @@ public:
 	 * Called from ShouldDoorAbilityRespondToEvent() as an early extension point to override before any other checks occur
 	 * @return false if you want to prevent the door from changing state
 	 */
-	UFUNCTION(BlueprintNativeEvent, Category=Door)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category=Door)
 	bool CanDoorChangeToAnyState(const AActor* Avatar) const;
 	bool CanDoorChangeToAnyState_Implementation(const AActor* Avatar) const	{ return true; }
 	
@@ -148,7 +181,7 @@ public:
 	 * Called from ShouldDoorAbilityRespondToEvent() as an extension point to override if the change in door state would otherwise succeed
 	 * @return false if you want to prevent an otherwise successful change in door state
 	 */
-	UFUNCTION(BlueprintNativeEvent, Category=Door)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category=Door)
 	bool CanChangeDoorState(const AActor* Avatar, EDoorState CurrentDoorState, EDoorState NewDoorState,
 		EDoorDirection OldDoorDirection, EDoorDirection NewDoorDirection) const;
 	virtual bool CanChangeDoorState_Implementation(const AActor* Avatar, EDoorState CurrentDoorState,
@@ -164,7 +197,7 @@ public:
 	 * @param NewDoorState The new state of the door
 	 * @param OldDoorDirection The previous direction of the door
 	 * @param NewDoorDirection The new direction of the door
-	 * @param Avatar The avatar that is interacting with the door -- only valid if activated by ability and NOT from replication
+	 * @param Avatar The avatar that is interacting with the door -- not valid from replication
 	 * @param bClientSimulation If true, this change occurred from replication and not from predicted interaction
 	 */
 	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door State Changed"))
@@ -178,7 +211,7 @@ public:
 	 * @param NewDoorState The new state of the door
 	 * @param OldDoorDirection The previous direction of the door
 	 * @param NewDoorDirection The new direction of the door
-	 * @param Avatar The avatar that is interacting with the door -- only valid if activated by ability and NOT from replication
+	 * @param Avatar The avatar that is interacting with the door -- not valid from replication
 	 * @param bClientSimulation If true, this change occurred from replication and not from predicted interaction
 	 */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, Category=Door, meta=(DisplayName="On Door State Changed (Cosmetic)"))
@@ -520,8 +553,40 @@ public:
 	/** How long to wait before interaction since the door entered a stationary state (open or closed) after being in motion */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Properties")
 	float StationaryCooldown = 0.3f;
+
+	UFUNCTION()
+	virtual void OnStationaryCooldownFinished();
+
+	UFUNCTION()
+	virtual void OnInMotionCooldownFinished();
 	
-protected:
+	/** Called when the door was on cooldown and the cooldown has finished */
+	UPROPERTY(BlueprintAssignable, Category=Door)
+	FOnDoorCooldownFinished OnDoorCooldownFinishedDelegate;
+
+	/** Called when the door was on cooldown and the cooldown has finished */
+	UPROPERTY(BlueprintAssignable, Category=Door)
+	FOnDoorCooldownFinished OnDoorStationaryCooldownFinishedDelegate;
+	
+	/** Called when the door was on cooldown and the cooldown has finished */
+	UPROPERTY(BlueprintAssignable, Category=Door)
+	FOnDoorCooldownFinished OnDoorInMotionCooldownFinishedDelegate;
+	
+	/** Get the remaining time until OnDoorCooldownFinished is called */
+	UFUNCTION(BlueprintPure, Category=Door)
+	float GetRemainingCooldown() const;
+
+	/** Get the remaining time until OnDoorCooldownFinished is called */
+	UFUNCTION(BlueprintPure, Category=Door)
+	float GetRemainingStationaryCooldown() const;
+
+	/** Get the remaining time until OnDoorCooldownFinished is called */
+	UFUNCTION(BlueprintPure, Category=Door)
+	float GetRemainingInMotionCooldown() const;
+
+	FTimerHandle MotionCooldownTimerHandle;
+	FTimerHandle StationaryCooldownTimerHandle;
+
 	/** Last time the door was interacted with successfully */
 	UPROPERTY(BlueprintReadOnly, Category=Door)
 	float LastInMotionTime = -1.f;
@@ -529,17 +594,15 @@ protected:
 	/** Last time the door entered a stationary state after being in motion */
 	UPROPERTY(BlueprintReadOnly, Category=Door)
 	float LastStationaryTime = -1.f;
-	
+
+protected:
 	/** Represents the value in -1 to 1 range by which the door is open or closed, -1 and 1 are fully open inward / outward and 0 is fully closed */
 	UPROPERTY(VisibleInstanceOnly, Category=Door, meta=(ClampMin="-1", UIMin="-1", ClampMax="1", UIMax="1", ForceUnits="Percent"))
 	float DoorAlpha = 0.f;
 
 public:
 	UFUNCTION(BlueprintPure, Category=Door)
-	bool IsDoorOnCooldown() const
-	{
-		return IsDoorOnMotionCooldown() || IsDoorOnStationaryCooldown();
-	}
+	bool IsDoorOnCooldown() const;
 
 	UFUNCTION(BlueprintPure, Category=Door)
 	bool IsDoorOnMotionCooldown() const;

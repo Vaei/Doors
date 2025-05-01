@@ -12,6 +12,5 @@ DEFINE_LOG_CATEGORY(LogDoors);
 
 FDoorAbilityTargetData::FDoorAbilityTargetData(const EDoorState& InDoorState, const EDoorDirection& InDoorDirection,
 	const EDoorSide& InDoorSide)
-	: DoorState(UDoorStatics::PackDoorState(InDoorState, InDoorDirection))
-	, DoorSide(InDoorSide)
+	: PackedState(UDoorStatics::PackTargetDataDoorState(InDoorState, InDoorDirection, InDoorSide))
 {}
