@@ -165,7 +165,6 @@ void ADoor::TickDoor_Implementation(float DeltaTime)
 				}
 				break;
 			default:
-				ensure(false);
 				if (ShouldAutoDisableTickState())
 				{
 					SetActorTickEnabled(false);
