@@ -136,7 +136,6 @@ void ADoor::Tick(float DeltaTime)
 void ADoor::TickDoor_Implementation(float DeltaTime)
 {
 	const float TargetAlpha = GetTargetDoorAlpha();
-	ensure(!FMath::IsNearlyEqual(DoorAlpha, TargetAlpha));
 
 	switch (DoorAlphaMode)
 	{
@@ -231,6 +230,7 @@ void ADoor::OnToggleShowDoorStateDuringPIE(IConsoleVariable* CVar)
 		DoorSprite->SetVisibility(CVar->GetBool());
 	}
 }
+
 #endif
 
 void ADoor::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -263,6 +263,19 @@ void ADoor::OnRep_DoorState()
 		DoorSprite->OnRepDoorStateChanged(RepDoorState);
 	}
 #endif
+}
+
+void ADoor::SetDoorStateReplicationEnabled(bool bEnabled, bool bReplicateNow)
+{
+	if (HasAuthority() && GetNetMode() != NM_Standalone && bEnableDoorStateReplication != bEnabled)
+	{
+		bEnableDoorStateReplication = bEnabled;
+		if (bEnableDoorStateReplication && bReplicateNow)
+		{
+			MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, RepDoorState, this);
+			ForceNetUpdate();
+		}
+	}
 }
 
 void ADoor::SetDoorState(EDoorState NewDoorState, EDoorDirection NewDoorDirection, AActor* Avatar, bool bClientSimulation)
@@ -336,29 +349,29 @@ void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState,
 	}
 	
 	// Helper events
-	if (NewDoorState == EDoorState::Closed)
+	switch (NewDoorState)
 	{
+	case EDoorState::Closed:
 		OnDoorFinishedClosing(bClientSimulation);
-	}
-	else if (NewDoorState == EDoorState::Open)
-	{
-		OnDoorFinishedOpening(bClientSimulation);
-	}
-	else if (NewDoorState == EDoorState::Opening)
-	{
-		OnDoorStartedOpening(bClientSimulation);
-	}
-	else if (NewDoorState == EDoorState::Closing)
-	{
+		break;
+	case EDoorState::Closing:
 		OnDoorStartedClosing(bClientSimulation);
+		break;
+	case EDoorState::Opening:
+		OnDoorStartedOpening(bClientSimulation);
+		break;
+	case EDoorState::Open:
+		OnDoorFinishedOpening(bClientSimulation);
+		break;
 	}
-	else if (IsDoorStateInMotion(OldDoorState))
+	
+	if (IsDoorStateInMotion(OldDoorState))
 	{
 		OnDoorInMotionInterrupted(OldDoorState, NewDoorState, OldDoorDirection, NewDoorDirection, bClientSimulation);
 	}
 
 	// Replicate the door state to clients
-	if (HasAuthority() && GetNetMode() != NM_Standalone)
+	if (HasAuthority() && GetNetMode() != NM_Standalone && bEnableDoorStateReplication)
 	{
 		RepDoorState = UDoorStatics::PackDoorState(DoorState, DoorDirection);
 		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, RepDoorState, this);
@@ -389,11 +402,21 @@ void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState,
 
 void ADoor::OnDoorFinishedOpening(bool bClientSimulation)
 {
-	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorFinishedOpening: %s"), *GetRoleString(), *GetNameSafe(this));
-
 	if (ShouldAutoDisableTickState()) { SetActorTickEnabled(false); }
 
+	if (bClientSimulation && IsDoorStationary())
+	{
+		return;
+	}
+	
+	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorFinishedOpening: %s"), *GetRoleString(), *GetNameSafe(this));
+
 	LastStationaryTime = GetWorld()->GetTimeSeconds();
+	if (StationaryCooldown > 0.f)
+	{
+		GetWorldTimerManager().SetTimer(StationaryCooldownTimerHandle, this, &ThisClass::OnStationaryCooldownFinished,
+			StationaryCooldown, false);
+	}
 
 	SetDoorAlpha(GetTargetDoorAlpha());
 
@@ -406,11 +429,21 @@ void ADoor::OnDoorFinishedOpening(bool bClientSimulation)
 
 void ADoor::OnDoorFinishedClosing(bool bClientSimulation)
 {
-	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorFinishedClosing: %s"), *GetRoleString(), *GetNameSafe(this));
-
 	if (ShouldAutoDisableTickState()) { SetActorTickEnabled(false); }
+
+	if (bClientSimulation && IsDoorStationary())
+	{
+		return;
+	}
+	
+	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorFinishedClosing: %s"), *GetRoleString(), *GetNameSafe(this));
 	
 	LastStationaryTime = GetWorld()->GetTimeSeconds();
+	if (StationaryCooldown > 0.f)
+	{
+		GetWorldTimerManager().SetTimer(StationaryCooldownTimerHandle, this, &ThisClass::OnStationaryCooldownFinished,
+			StationaryCooldown, false);
+	}
 
 	SetDoorAlpha(GetTargetDoorAlpha());
 	
@@ -423,14 +456,24 @@ void ADoor::OnDoorFinishedClosing(bool bClientSimulation)
 
 void ADoor::OnDoorStartedOpening(bool bClientSimulation)
 {
-	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorStartedOpening: %s"), *GetRoleString(), *GetNameSafe(this));
-
 	if (DoorAlphaMode != EAlphaMode::Disabled)
 	{
 		SetActorTickEnabled(true);
 	}
 
+	if (bClientSimulation && IsDoorInMotion())
+	{
+		return;
+	}
+	
+	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorStartedOpening: %s"), *GetRoleString(), *GetNameSafe(this));
+
 	LastInMotionTime = GetWorld()->GetTimeSeconds();
+	if (MotionCooldown > 0.f)
+	{
+		GetWorldTimerManager().SetTimer(MotionCooldownTimerHandle, this, &ThisClass::OnInMotionCooldownFinished,
+			MotionCooldown, false);
+	}
 	
 	K2_OnDoorStartedOpening(bClientSimulation);
 	if (GetNetMode() != NM_DedicatedServer)
@@ -441,14 +484,24 @@ void ADoor::OnDoorStartedOpening(bool bClientSimulation)
 
 void ADoor::OnDoorStartedClosing(bool bClientSimulation)
 {
-	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorStartedClosing: %s"), *GetRoleString(), *GetNameSafe(this));
-	
 	if (DoorAlphaMode != EAlphaMode::Disabled)
 	{
 		SetActorTickEnabled(true);
 	}
 	
+	if (bClientSimulation && IsDoorInMotion())
+	{
+		return;
+	}
+	
+	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorStartedClosing: %s"), *GetRoleString(), *GetNameSafe(this));
+
 	LastInMotionTime = GetWorld()->GetTimeSeconds();
+	if (MotionCooldown > 0.f)
+	{
+		GetWorldTimerManager().SetTimer(MotionCooldownTimerHandle, this, &ThisClass::OnInMotionCooldownFinished,
+			MotionCooldown, false);
+	}
 
 	K2_OnDoorStartedClosing(bClientSimulation);
 	if (GetNetMode() != NM_DedicatedServer)
@@ -855,14 +908,83 @@ void ADoor::OnDoorOpenMotionChanged(EDoorMotion OldDoorOpenMotion, EDoorMotion N
 	K2_OnDoorOpenMotionChanged(OldDoorOpenMotion, NewDoorOpenMotion);
 }
 
+void ADoor::OnStationaryCooldownFinished()
+{
+	// Clear the timer -- its still considered active on this frame which could cause other checks to fail
+	GetWorldTimerManager().ClearTimer(StationaryCooldownTimerHandle);
+	
+	// Broadcast the delegate
+	if (OnDoorStationaryCooldownFinishedDelegate.IsBound())
+	{
+		OnDoorStationaryCooldownFinishedDelegate.Broadcast(this);
+	}
+
+	// Broadcast the generic cooldown finished delegate
+	if (OnDoorCooldownFinishedDelegate.IsBound() && !IsDoorOnMotionCooldown())
+	{
+		OnDoorCooldownFinishedDelegate.Broadcast(this);
+	}
+}
+
+void ADoor::OnInMotionCooldownFinished()
+{
+	// Clear the timer -- its still considered active on this frame which could cause other checks to fail
+	GetWorldTimerManager().ClearTimer(MotionCooldownTimerHandle);
+	
+	// Broadcast the delegate
+	if (OnDoorInMotionCooldownFinishedDelegate.IsBound())
+	{
+		OnDoorInMotionCooldownFinishedDelegate.Broadcast(this);
+	}
+
+	// Broadcast the generic cooldown finished delegate
+	if (OnDoorCooldownFinishedDelegate.IsBound() && !IsDoorOnStationaryCooldown())
+	{
+		OnDoorCooldownFinishedDelegate.Broadcast(this);
+	}
+}
+
+float ADoor::GetRemainingCooldown() const
+{
+	if (!IsDoorOnCooldown())
+	{
+		return 0.f;
+	}
+	
+	return FMath::Max(GetRemainingStationaryCooldown(), GetRemainingInMotionCooldown());
+}
+
+float ADoor::GetRemainingStationaryCooldown() const
+{
+	if (!IsDoorOnStationaryCooldown())
+	{
+		return 0.f;
+	}
+	return GetWorldTimerManager().GetTimerRemaining(StationaryCooldownTimerHandle);
+}
+
+float ADoor::GetRemainingInMotionCooldown() const
+{
+	if (!IsDoorOnMotionCooldown())
+	{
+		return 0.f;
+	}
+	return GetWorldTimerManager().GetTimerRemaining(MotionCooldownTimerHandle);
+}
+
+bool ADoor::IsDoorOnCooldown() const
+{
+	return IsDoorOnMotionCooldown() || IsDoorOnStationaryCooldown();
+}
+
 bool ADoor::IsDoorOnMotionCooldown() const
 {
-	return LastInMotionTime >= 0.f && GetWorld()->TimeSince(LastInMotionTime) < MotionCooldown;
+	return GetWorldTimerManager().IsTimerActive(MotionCooldownTimerHandle);
 }
 
 bool ADoor::IsDoorOnStationaryCooldown() const
 {
-	return LastStationaryTime >= 0.f && GetWorld()->TimeSince(LastStationaryTime) < StationaryCooldown;
+	return GetWorldTimerManager().IsTimerActive(StationaryCooldownTimerHandle);
 }
 
 bool ADoor::ShouldAbilityRespondToDoorEvent(const AActor* Avatar, EDoorState ClientDoorState,

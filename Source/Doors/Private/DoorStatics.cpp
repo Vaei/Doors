@@ -72,9 +72,166 @@ void UDoorStatics::UnpackDoorState(EReplicatedDoorState DoorStatePacked, EDoorSt
   }
 }
 
+ETargetDataDoorState UDoorStatics::PackTargetDataDoorState(EDoorState DoorState, EDoorDirection DoorDirection, EDoorSide DoorSide)
+{
+	switch (DoorState)
+	{
+	case EDoorState::Closed:
+		switch (DoorDirection)
+		{
+	case EDoorDirection::Outward:
+			return DoorSide == EDoorSide::Front ? ETargetDataDoorState::ClosedOutwardFront : ETargetDataDoorState::ClosedOutwardBack;
+	case EDoorDirection::Inward:
+			return DoorSide == EDoorSide::Front ? ETargetDataDoorState::ClosedInwardFront : ETargetDataDoorState::ClosedInwardBack;
+	default:
+			break;
+		}
+		break;
+
+	case EDoorState::Opening:
+		switch (DoorDirection)
+		{
+	case EDoorDirection::Outward:
+			return DoorSide == EDoorSide::Front ? ETargetDataDoorState::OpeningOutwardFront : ETargetDataDoorState::OpeningOutwardBack;
+	case EDoorDirection::Inward:
+			return DoorSide == EDoorSide::Front ? ETargetDataDoorState::OpeningInwardFront : ETargetDataDoorState::OpeningInwardBack;
+	default:
+			break;
+		}
+		break;
+
+	case EDoorState::Open:
+		switch (DoorDirection)
+		{
+	case EDoorDirection::Outward:
+			return DoorSide == EDoorSide::Front ? ETargetDataDoorState::OpenOutwardFront : ETargetDataDoorState::OpenOutwardBack;
+	case EDoorDirection::Inward:
+			return DoorSide == EDoorSide::Front ? ETargetDataDoorState::OpenInwardFront : ETargetDataDoorState::OpenInwardBack;
+	default:
+			break;
+		}
+		break;
+
+	case EDoorState::Closing:
+		switch (DoorDirection)
+		{
+	case EDoorDirection::Outward:
+			return DoorSide == EDoorSide::Front ? ETargetDataDoorState::ClosingOutwardFront : ETargetDataDoorState::ClosingOutwardBack;
+	case EDoorDirection::Inward:
+			return DoorSide == EDoorSide::Front ? ETargetDataDoorState::ClosingInwardFront : ETargetDataDoorState::ClosingInwardBack;
+	default:
+			break;
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	ensureMsgf(false, TEXT("Invalid combination in PackTargetDataDoorState: State=%d, Dir=%d, Side=%d"), (int32)DoorState, (int32)DoorDirection, (int32)DoorSide);
+	return ETargetDataDoorState::ClosedOutwardFront;
+}
+
+void UDoorStatics::UnpackTargetDataDoorState(ETargetDataDoorState DoorStatePacked, EDoorState& OutDoorState, EDoorDirection& OutDoorDirection, EDoorSide& OutDoorSide)
+{
+	switch (DoorStatePacked)
+	{
+	case ETargetDataDoorState::ClosedOutwardFront:
+		OutDoorState = EDoorState::Closed;
+		OutDoorDirection = EDoorDirection::Outward;
+		OutDoorSide = EDoorSide::Front;
+		break;
+	case ETargetDataDoorState::ClosedOutwardBack:
+		OutDoorState = EDoorState::Closed;
+		OutDoorDirection = EDoorDirection::Outward;
+		OutDoorSide = EDoorSide::Back;
+		break;
+	case ETargetDataDoorState::ClosedInwardFront:
+		OutDoorState = EDoorState::Closed;
+		OutDoorDirection = EDoorDirection::Inward;
+		OutDoorSide = EDoorSide::Front;
+		break;
+	case ETargetDataDoorState::ClosedInwardBack:
+		OutDoorState = EDoorState::Closed;
+		OutDoorDirection = EDoorDirection::Inward;
+		OutDoorSide = EDoorSide::Back;
+		break;
+
+	case ETargetDataDoorState::OpeningOutwardFront:
+		OutDoorState = EDoorState::Opening;
+		OutDoorDirection = EDoorDirection::Outward;
+		OutDoorSide = EDoorSide::Front;
+		break;
+	case ETargetDataDoorState::OpeningOutwardBack:
+		OutDoorState = EDoorState::Opening;
+		OutDoorDirection = EDoorDirection::Outward;
+		OutDoorSide = EDoorSide::Back;
+		break;
+	case ETargetDataDoorState::OpeningInwardFront:
+		OutDoorState = EDoorState::Opening;
+		OutDoorDirection = EDoorDirection::Inward;
+		OutDoorSide = EDoorSide::Front;
+		break;
+	case ETargetDataDoorState::OpeningInwardBack:
+		OutDoorState = EDoorState::Opening;
+		OutDoorDirection = EDoorDirection::Inward;
+		OutDoorSide = EDoorSide::Back;
+		break;
+
+	case ETargetDataDoorState::OpenOutwardFront:
+		OutDoorState = EDoorState::Open;
+		OutDoorDirection = EDoorDirection::Outward;
+		OutDoorSide = EDoorSide::Front;
+		break;
+	case ETargetDataDoorState::OpenOutwardBack:
+		OutDoorState = EDoorState::Open;
+		OutDoorDirection = EDoorDirection::Outward;
+		OutDoorSide = EDoorSide::Back;
+		break;
+	case ETargetDataDoorState::OpenInwardFront:
+		OutDoorState = EDoorState::Open;
+		OutDoorDirection = EDoorDirection::Inward;
+		OutDoorSide = EDoorSide::Front;
+		break;
+	case ETargetDataDoorState::OpenInwardBack:
+		OutDoorState = EDoorState::Open;
+		OutDoorDirection = EDoorDirection::Inward;
+		OutDoorSide = EDoorSide::Back;
+		break;
+
+	case ETargetDataDoorState::ClosingOutwardFront:
+		OutDoorState = EDoorState::Closing;
+		OutDoorDirection = EDoorDirection::Outward;
+		OutDoorSide = EDoorSide::Front;
+		break;
+	case ETargetDataDoorState::ClosingOutwardBack:
+		OutDoorState = EDoorState::Closing;
+		OutDoorDirection = EDoorDirection::Outward;
+		OutDoorSide = EDoorSide::Back;
+		break;
+	case ETargetDataDoorState::ClosingInwardFront:
+		OutDoorState = EDoorState::Closing;
+		OutDoorDirection = EDoorDirection::Inward;
+		OutDoorSide = EDoorSide::Front;
+		break;
+	case ETargetDataDoorState::ClosingInwardBack:
+		OutDoorState = EDoorState::Closing;
+		OutDoorDirection = EDoorDirection::Inward;
+		OutDoorSide = EDoorSide::Back;
+		break;
+
+	default:
+		ensureMsgf(false, TEXT("Unknown packed door state: %d"), (int32)DoorStatePacked);
+		OutDoorState = EDoorState::Closed;
+		OutDoorDirection = EDoorDirection::Outward;
+		OutDoorSide = EDoorSide::Front;
+		break;
+	}
+}
+
 void UDoorStatics::GetDoorFromAbilityActivationTargetData(
-	const FGameplayEventData& EventData, EDoorValid& Validate, EDoorState& DoorState, EDoorDirection& DoorDirection, EDoorSide
-	& DoorSide)
+	const FGameplayEventData& EventData, EDoorValid& Validate, EDoorState& DoorState, EDoorDirection& DoorDirection,
+	EDoorSide& DoorSide)
 {
 	Validate = EDoorValid::NotValid;
 	for (const TSharedPtr<FGameplayAbilityTargetData>& Data : EventData.TargetData.Data)
@@ -85,8 +242,7 @@ void UDoorStatics::GetDoorFromAbilityActivationTargetData(
 			{
 				Validate = EDoorValid::Valid;
 				const FDoorAbilityTargetData* DoorData = static_cast<FDoorAbilityTargetData*>(Data.Get());
-				DoorSide = DoorData->DoorSide;
-				UnpackDoorState(DoorData->DoorState, DoorState, DoorDirection);
+				UnpackTargetDataDoorState(DoorData->PackedState, DoorState, DoorDirection, DoorSide);
 			}
 		}
 	}

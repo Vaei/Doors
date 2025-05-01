@@ -8,6 +8,8 @@
 
 DECLARE_LOG_CATEGORY_EXTERN(LogDoors, Log, All);
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDoorCooldownFinished, const ADoor*, Door);
+
 /** Current state of the door */
 UENUM(BlueprintType)
 enum class EDoorState : uint8
@@ -53,6 +55,30 @@ enum class EReplicatedDoorState : uint8
 	OpenInward,
 	ClosingOutward,
 	ClosingInward,
+};
+
+/**
+ * Complete packing for target data including the door sides
+ */
+UENUM()
+enum class ETargetDataDoorState : uint8
+{
+	ClosedOutwardFront,
+	ClosedOutwardBack,
+	ClosedInwardFront,
+	ClosedInwardBack,
+	OpeningOutwardFront,
+	OpeningOutwardBack,
+	OpeningInwardFront,
+	OpeningInwardBack,
+	OpenOutwardFront,
+	OpenOutwardBack,
+	OpenInwardFront,
+	OpenInwardBack,
+	ClosingOutwardFront,
+	ClosingOutwardBack,
+	ClosingInwardFront,
+	ClosingInwardBack,
 };
 
 /**
@@ -142,23 +168,18 @@ struct DOORS_API FDoorAbilityTargetData : public FGameplayAbilityTargetData
 	GENERATED_BODY()
 
 	FDoorAbilityTargetData()
-		: DoorState(EReplicatedDoorState::ClosedOutward)
-		, DoorSide(EDoorSide::Front)
+		: PackedState(ETargetDataDoorState::ClosedOutwardFront)
 	{}
 
 	FDoorAbilityTargetData(const EDoorState& InDoorState, const EDoorDirection& InDoorDirection,
 		const EDoorSide& InDoorSide);
 
 	UPROPERTY(BlueprintReadOnly, Category=Character)
-	EReplicatedDoorState DoorState;
-
-	UPROPERTY(BlueprintReadOnly, Category=Character)
-	EDoorSide DoorSide;
+	ETargetDataDoorState PackedState;
 
 	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
 	{
-		Ar << DoorState;
-		Ar << DoorSide;
+		Ar << PackedState;
 		return true;
 	}
 	

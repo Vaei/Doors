@@ -25,6 +25,13 @@ public:
 	/** Unpack the door state and door direction from a single uint8 from replication */
 	static void UnpackDoorState(EReplicatedDoorState DoorStatePacked, EDoorState& OutDoorState, EDoorDirection& OutDoorDirection);
 
+	/** Pack the door state and door direction and door side into a single uint8 for replication */
+	static ETargetDataDoorState PackTargetDataDoorState(EDoorState DoorState, EDoorDirection DoorDirection, EDoorSide DoorSide);
+	
+	/** Unpack the door state and door direction from a single uint8 from replication */
+	static void UnpackTargetDataDoorState(ETargetDataDoorState DoorStatePacked, EDoorState& OutDoorState,
+		EDoorDirection& OutDoorDirection, EDoorSide& OutDoorSide);
+	
 	/** Unpack any data sent from the gameplay ability event data payload */
 	UFUNCTION(BlueprintCallable, Category=Door, meta=(ExpandEnumAsExecs="Validate"))
 	static void GetDoorFromAbilityActivationTargetData(const FGameplayEventData& EventData, EDoorValid& Validate,
