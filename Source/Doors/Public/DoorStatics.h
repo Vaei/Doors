@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "DoorTypes.h"
-
 #include "DoorStatics.generated.h"
 
 struct FGameplayEventData;
