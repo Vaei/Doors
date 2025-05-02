@@ -370,6 +370,10 @@ public:
 	
 	FTimerHandle StartPreviewTimerHandle;
 	FTimerHandle TickPreviewTimerHandle;
+
+#endif
+
+#if WITH_EDITOR
 	
 	void StartPreviewAnimation(bool bIsLoop);
 
@@ -377,7 +381,7 @@ public:
 
 	UFUNCTION()
 	void TickPreviewAnimation();
-
+	
 #endif
 	
 public:
