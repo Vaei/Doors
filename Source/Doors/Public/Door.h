@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "DoorTypes.h"
 #include "GraspableOwner.h"
-
 #include "Door.generated.h"
 
 class UDoorSpriteWidgetComponent;
@@ -39,7 +38,7 @@ public:
 	TObjectPtr<UDoorEditorVisualizer> DoorVisualizer;
 
 	/** Used to draw debug sprites during PIE in editor */
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category=Door)
 	TObjectPtr<UDoorSpriteWidgetComponent> DoorSprite;
 
 protected:
