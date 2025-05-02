@@ -6,6 +6,7 @@
 #include "Door.h"
 #include "GraspComponent.h"
 #include "GraspStatics.h"
+#include "Components/PrimitiveComponent.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(DoorFilter_DoorState)
 

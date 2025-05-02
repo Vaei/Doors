@@ -7,6 +7,8 @@
 #include "Abilities/GameplayAbilityTypes.h"
 #include "Net/UnrealNetwork.h"
 #include "Net/Core/PushModel/PushModel.h"
+#include "Engine/World.h"
+#include "TimerManager.h"
 
 #if WITH_EDITORONLY_DATA
 #include "Visualizers/DoorEditorVisualizer.h"
