@@ -8,7 +8,7 @@
 #include UE_INLINE_GENERATED_CPP_BY_NAME(DoorSpriteWidget)
 
 
-#if WITH_EDITORONLY_DATA
+#if WITH_EDITOR
 void UDoorSpriteWidget::OnDoorInitialized(ADoor* Door)
 {
 	if (IsValid(Door))

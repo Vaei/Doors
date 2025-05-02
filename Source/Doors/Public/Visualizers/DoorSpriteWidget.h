@@ -17,7 +17,7 @@ class DOORS_API UDoorSpriteWidget : public UUserWidget
 {
 	GENERATED_BODY()
 
-#if WITH_EDITORONLY_DATA
+#if WITH_EDITOR
 public:
 	void OnDoorInitialized(ADoor* Door);
 

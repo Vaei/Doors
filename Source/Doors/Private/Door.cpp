@@ -528,7 +528,7 @@ void ADoor::OnDoorInMotionInterrupted(EDoorState OldDoorState, EDoorState NewDoo
 	}
 }
 
-#if WITH_EDITORONLY_DATA
+#if WITH_EDITOR
 
 void ADoor::StartPreviewAnimation(bool bIsLoop)
 {
