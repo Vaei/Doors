@@ -15,6 +15,7 @@ public class Doors : ModuleRules
 				"GameplayAbilities",
 				"GameplayTags",
 				"DeveloperSettings",
+				"TargetingSystem",
 				"Grasp",
 			}
 			);
