@@ -152,8 +152,8 @@ void FDoorVisualizer::DrawVisualization(const UActorComponent* InComponent, cons
 	const bool bBackAccess = Door->GetDoorAccess() == EDoorAccess::Bidirectional || 
 		Door->GetDoorAccess() == EDoorAccess::Behind;
 
-	const FLinearColor FrontAccessColor = bFrontAccess ? FColor::Green.ReinterpretAsLinear() : FColor::Orange.ReinterpretAsLinear();
-	const FLinearColor BackAccessColor = bBackAccess ? FColor::Green.ReinterpretAsLinear() : FColor::Orange.ReinterpretAsLinear();
+	const FLinearColor FrontAccessColor = bFrontAccess ? FColor::Green.ReinterpretAsLinear() : FColor::Red.ReinterpretAsLinear();
+	const FLinearColor BackAccessColor = bBackAccess ? FColor::Green.ReinterpretAsLinear() : FColor::Red.ReinterpretAsLinear();
 
 	DrawCircle(PDI, FMath::Lerp<FVector>(FloorFront, FloorExtendFront, 0.5f), 
 		LocalX, LocalY, FrontAccessColor, Extents.Y * .2f, 3, SDPG_Foreground, LineThickness);
@@ -168,8 +168,8 @@ void FDoorVisualizer::DrawVisualization(const UActorComponent* InComponent, cons
 	const bool bBackLocked = Door->GetDoorOpenDirection() != EDoorOpenDirection::Bidirectional && 
 		Door->GetDoorOpenDirection() != EDoorOpenDirection::Inward;
 
-	const FLinearColor FrontLockColor = bFrontLocked ? FColor::Orange.ReinterpretAsLinear() : FColor::Emerald.ReinterpretAsLinear();
-	const FLinearColor BackLockColor = bBackLocked ? FColor::Orange.ReinterpretAsLinear() : FColor::Emerald.ReinterpretAsLinear();
+	const FLinearColor FrontLockColor = bFrontLocked ? FColor::Red.ReinterpretAsLinear() : FColor::Emerald.ReinterpretAsLinear();
+	const FLinearColor BackLockColor = bBackLocked ? FColor::Red.ReinterpretAsLinear() : FColor::Emerald.ReinterpretAsLinear();
 
 	// Draw a box in front of the door
 	PDI->DrawLine(FloorFrontLeft, FloorFrontRight, FrontLockColor, SDPG_Foreground, LineThickness);
