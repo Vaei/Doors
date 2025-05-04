@@ -13,6 +13,7 @@
 
 > [!WARNING]
 > Use `git clone` instead of downloading as a zip, or you will not receive content
+> <br>[Or download the pre-compiled binaries here](https://github.com/Vaei/Doors/wiki/How-to-Use)
 > <br>Install this as a project plugin, not an engine plugin
 
 > [!TIP]
