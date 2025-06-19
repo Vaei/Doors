@@ -744,11 +744,81 @@ void ADoor::OnDoorAlphaChanged(float OldDoorAlpha, float NewDoorAlpha)
 	const float TransitionTime = DoorAlphaMode == EAlphaMode::Time ? GetDoorTransitionTimeFromState(DoorState, DoorDirection) : 0.f;
 	
 	K2_OnDoorAlphaChanged(OldDoorAlpha, NewDoorAlpha, DoorState, DoorDirection, DoorTime, TransitionTime);
+
+	// Trigger notifies due to change in alpha
+	HandleDoorAlphaNotifies(OldDoorAlpha, NewDoorAlpha);
 }
 
 void ADoor::TriggerOnDoorAlphaChanged()
 {
 	OnDoorAlphaChanged(DoorAlpha, DoorAlpha);
+}
+
+void ADoor::HandleDoorAlphaNotifies(float OldDoorAlpha, float NewDoorAlpha)
+{
+	// Notifies
+	if (!bNotifyCosmeticOnly || GetNetMode() != NM_DedicatedServer)
+	{
+		// This can occur from completion events that ensure state/alpha is reached
+		if (NewDoorAlpha == OldDoorAlpha)
+		{
+			return;
+		}
+
+		NewDoorAlpha = FMath::Abs<float>(NewDoorAlpha);
+		OldDoorAlpha = FMath::Abs<float>(OldDoorAlpha);
+
+		// Iterate door notifies to see if we need to trigger any -- these are pre-sorted by alpha
+		const TArray<FDoorNotify>& Notifies = GetDoorNotifies();
+		for (const FDoorNotify& Notify : Notifies)
+		{
+			if (IsDoorOpenOrOpening())
+			{
+				if (OldDoorAlpha <= Notify.Alpha && NewDoorAlpha >= Notify.Alpha)
+				{
+					OnDoorNotify(Notify.NotifyTag);
+					K2_OnDoorNotify(Notify.NotifyTag);
+					break;  // No point testing others due to sorting
+				}
+			}
+			else
+			{
+				const float ClosingAlpha = 1.f - Notify.Alpha;
+				if (OldDoorAlpha >= ClosingAlpha && NewDoorAlpha <= ClosingAlpha)
+				{
+					OnDoorNotify(Notify.NotifyTag);
+					K2_OnDoorNotify(Notify.NotifyTag);
+					break;  // No point testing others due to sorting
+				}
+			}
+		}
+	}
+}
+
+const TArray<FDoorNotify>& ADoor::GetDoorNotifies() const
+{
+	return GetDoorNotifiesForState(DoorState, DoorDirection);
+}
+
+const TArray<FDoorNotify>& ADoor::GetDoorNotifiesForState(EDoorState State, EDoorDirection Direction) const
+{
+	if (IsDoorStateOpenOrOpening(State))
+	{
+		switch (Direction)
+		{
+		case EDoorDirection::Outward: return OpenOutwardNotifies;
+		case EDoorDirection::Inward: return OpenInwardNotifies;
+		}
+	}
+	else
+	{
+		switch (Direction)
+		{
+		case EDoorDirection::Outward: return CloseOutwardNotifies;
+		case EDoorDirection::Inward: return CloseInwardNotifies;
+		}
+	}
+	return CloseOutwardNotifies;
 }
 
 // -------------------------------------------------------------
@@ -1083,13 +1153,32 @@ void ADoor::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChanged
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
 	const FName& PropertyName = PropertyChangedEvent.GetMemberPropertyName();
-	
+
+	// Door state or direction
 	if (PropertyName.IsEqual(GET_MEMBER_NAME_CHECKED(ThisClass, DoorState)) ||
 		PropertyName.IsEqual(GET_MEMBER_NAME_CHECKED(ThisClass, DoorDirection)))
 	{
 		HandleDoorPropertyChange();
 	}
 
+	// Sort notifies
+	else if (PropertyName.IsEqual(GET_MEMBER_NAME_CHECKED(ThisClass, OpenOutwardNotifies)))
+	{
+		OpenOutwardNotifies.Sort();
+	}
+	else if (PropertyName.IsEqual(GET_MEMBER_NAME_CHECKED(ThisClass, OpenInwardNotifies)))
+	{
+		OpenInwardNotifies.Sort();
+	}
+	else if (PropertyName.IsEqual(GET_MEMBER_NAME_CHECKED(ThisClass, CloseOutwardNotifies)))
+	{
+		CloseOutwardNotifies.Sort();
+	}
+	else if (PropertyName.IsEqual(GET_MEMBER_NAME_CHECKED(ThisClass, CloseInwardNotifies)))
+	{
+		CloseInwardNotifies.Sort();
+	}
+	
 #if WITH_EDITORONLY_DATA
 	if (GetWorld() && GetWorld()->IsPreviewWorld())
 	{
