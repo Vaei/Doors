@@ -332,6 +332,27 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time", meta=(EditCondition="DoorAlphaMode==EAlphaMode::InterpTo", EditConditionHides, ClampMin="0.0001", UIMin="0.0001", UIMax="1", Delta="0.01"))
 	float DoorInterpToTolerance = 0.01f;
+
+public:
+	/** If true, don't notify on dedicated server -- used for VFX/SFX only */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Notify")
+	bool bNotifyCosmeticOnly = true;
+
+	/** Notify when door reaches a certain alpha (percentage of in progress/motion door state) -- Useful for playing sounds and VFX at certain points in the door's animation */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Notify")
+	TArray<FDoorNotify> OpenOutwardNotifies;
+
+	/** Notify when door reaches a certain alpha (percentage of in progress/motion door state) -- Useful for playing sounds and VFX at certain points in the door's animation */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Notify")
+	TArray<FDoorNotify> OpenInwardNotifies;
+
+	/** Notify when door reaches a certain alpha (percentage of in progress/motion door state) -- Useful for playing sounds and VFX at certain points in the door's animation */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Notify")
+	TArray<FDoorNotify> CloseOutwardNotifies;
+
+	/** Notify when door reaches a certain alpha (percentage of in progress/motion door state) -- Useful for playing sounds and VFX at certain points in the door's animation */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Notify")
+	TArray<FDoorNotify> CloseInwardNotifies;
 	
 #if WITH_EDITORONLY_DATA
 public:
@@ -435,6 +456,23 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, Category=Door, meta=(DisplayName="On Door Alpha Changed"))
 	void K2_OnDoorAlphaChanged(float OldDoorAlpha, float NewDoorAlpha, EDoorState State, EDoorDirection Direction,
 		float DoorTime, float DoorTransitionTime);
+
+	/** Trigger notifies due to change in alpha */
+	void HandleDoorAlphaNotifies(float OldDoorAlpha, float NewDoorAlpha);
+
+public:
+	UFUNCTION(BlueprintPure, Category="Door Notify")
+	const TArray<FDoorNotify>& GetDoorNotifies() const;
+	
+	UFUNCTION(BlueprintPure, Category="Door Notify")
+	const TArray<FDoorNotify>& GetDoorNotifiesForState(EDoorState State, EDoorDirection Direction) const;
+
+	/** Callback for when notify is triggered */
+	virtual void OnDoorNotify(const FGameplayTag& NotifyTag) {}
+	
+	/** Callback for when notify is triggered */
+	UFUNCTION(BlueprintImplementableEvent, Category="Door Notify", meta=(DisplayName="On Door Notify"))
+	void K2_OnDoorNotify(const FGameplayTag& NotifyTag);
 	
 protected:
 	// Door Access

@@ -133,7 +133,7 @@ struct DOORS_API FDoorAbilityTargetData : public FGameplayAbilityTargetData
 	FDoorAbilityTargetData(const EDoorState& InDoorState, const EDoorDirection& InDoorDirection,
 		const EDoorSide& InDoorSide);
 
-	UPROPERTY(BlueprintReadOnly, Category=Character)
+	UPROPERTY(BlueprintReadOnly, Category=Door)
 	uint8 PackedState;
 
 	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
@@ -155,4 +155,42 @@ struct TStructOpsTypeTraits<FDoorAbilityTargetData> : TStructOpsTypeTraitsBase2<
 	{
 		WithNetSerializer = true	// For now this is REQUIRED for FGameplayAbilityTargetDataHandle net serialization to work
 	};
+};
+
+/**
+ * Notify when door reaches a certain alpha (percentage of in progress/motion door state)
+ * Useful for playing sounds and VFX at certain points in the door's animation
+ */
+USTRUCT(BlueprintType)
+struct DOORS_API FDoorNotify
+{
+	GENERATED_BODY()
+
+	FDoorNotify()
+		: NotifyTag(FGameplayTag::EmptyTag)
+		, Alpha(0.f)
+	{}
+
+	FDoorNotify(const FGameplayTag& InNotifyTag, const float InNotifyAlpha)
+		: NotifyTag(InNotifyTag)
+		, Alpha(InNotifyAlpha)
+	{}
+
+	/** Tag to broadcast with this notify */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door)
+	FGameplayTag NotifyTag;
+
+	/** Alpha where notify occurs */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Door, meta=(ClampMin="0.0", ClampMax="1.0", UIMin="0.0", UIMax="1.0", Delta="0.05", ForceUnits="Percent"))
+	float Alpha;
+
+	bool operator <(const FDoorNotify& Other) const
+	{
+		return Alpha < Other.Alpha;
+	}
+
+	FString ToString() const
+	{
+		return NotifyTag.ToString();
+	}
 };
