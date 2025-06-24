@@ -9,6 +9,7 @@
 #include "Net/Core/PushModel/PushModel.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
+#include "System/DoorVersioning.h"
 
 #if WITH_EDITORONLY_DATA
 #include "Visualizers/DoorEditorVisualizer.h"
@@ -59,7 +60,11 @@ ADoor::ADoor(const FObjectInitializer& ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = false;
+#if UE_5_05_OR_LATER
+	SetNetCullDistanceSquared(25000000.0);  // 5000cm
+#else
 	NetCullDistanceSquared = 25000000.0;  // 5000cm
+#endif
 	bReplicates = true;
 
 	Root = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
