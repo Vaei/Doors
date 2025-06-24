@@ -257,7 +257,7 @@ void ADoor::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifet
 void ADoor::OnRep_DoorState()
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(ADoor::OnRep_DoorState);
-	
+
 	EDoorState NewDoorState;
 	EDoorDirection NewDoorDirection;
 	UDoorStatics::UnpackDoorState(RepDoorState, NewDoorState, NewDoorDirection);

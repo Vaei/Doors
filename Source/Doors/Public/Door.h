@@ -68,7 +68,7 @@ protected:
 	/** Last avatar that interacted with the door */
 	TWeakObjectPtr<AActor> LastAvatar;
 
-	UPROPERTY(Transient, DuplicateTransient, VisibleInstanceOnly, BlueprintReadOnly, Category=Door)
+	UPROPERTY(Transient, DuplicateTransient, BlueprintReadOnly, Category=Door)
 	float LastDoorStateChangeTime = 0.f;
 
 public:
@@ -600,9 +600,12 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Properties")
 	bool bTrustClientDoorSide = true;
 
-	/** If true, the door can be interacted with while in motion, otherwise they must wait for it to finish opening or closing */
+	/**
+	 * If true, the door can be interacted with while in motion, otherwise they must wait for it to finish opening or closing
+	 * When using asymmetric curves or animations, a snap will occur when the door is interacted with while in motion
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Properties")
-	bool bCanInteractWhileInMotion = true;
+	bool bCanInteractWhileInMotion = false;
 
 public:
 	UFUNCTION(BlueprintPure, Category=Door)
