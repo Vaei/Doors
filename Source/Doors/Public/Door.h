@@ -68,6 +68,9 @@ protected:
 	/** Last avatar that interacted with the door */
 	TWeakObjectPtr<AActor> LastAvatar;
 
+	UPROPERTY(Transient, DuplicateTransient, VisibleInstanceOnly, BlueprintReadOnly, Category=Door)
+	float LastDoorStateChangeTime = 0.f;
+
 public:
 	UPROPERTY(BlueprintAssignable, Category=Door)
 	FOnDoorStateChanged OnDoorStateChangedDelegate;
@@ -92,7 +95,7 @@ public:
 #endif
 	
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
-	
+
 	UFUNCTION()
 	void OnRep_DoorState();
 
@@ -104,6 +107,14 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category=Door)
 	void SetDoorStateReplicationEnabled(bool bEnabled, bool bReplicateNow = true);
 
+	/**
+	 * How long to disable replication for the last avatar to change the door state
+	 * This prevents the replication from fighting the prediction causing the door to snap back
+	 * Set to 0 to disable clearing the owner (who does not receive replication)
+	 */
+	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category=Door)
+	float GetLastAvatarReplicationExpirationTime() const;
+	
 	/**
 	 * Optionally override this to return a location that reflects the door mesh in its current state
 	 * to allow GetDoorSide to accurately determine which side of the door the avatar is on, while the door is open
@@ -120,21 +131,18 @@ public:
 
 public:
 	/**
-	 * Last avatar that interacted with the door. Must be explicitly saved.
-	 * Not replicated -- if client activate ability fails will not be sent to the server.
+	 * Last avatar that interacted with the door
+	 * Not replicated
 	 */
 	UFUNCTION(BlueprintPure, Category=Door)
 	AActor* GetLastAvatar() const { return LastAvatar.IsValid() ? LastAvatar.Get() : nullptr; }
 
 	/**
-	 * Used to save the last avatar if required
-	 * Not replicated -- if client activate ability fails will not be sent to the server.
+	 * Last time the door state was changed
+	 * Not replicated
 	 */
-	UFUNCTION(BlueprintCallable, Category=Door)
-	void SetLastAvatar(AActor* Avatar)
-	{
-		LastAvatar = Avatar;
-	}
+	UFUNCTION(BlueprintPure, Category=Door)
+	float GetLastDoorStateChangeTime() const { return LastDoorStateChangeTime; }
 	
 public:
 	UFUNCTION(BlueprintPure, Category=Door)
@@ -333,6 +341,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Time", meta=(EditCondition="DoorAlphaMode==EAlphaMode::InterpTo", EditConditionHides, ClampMin="0.0001", UIMin="0.0001", UIMax="1", Delta="0.01"))
 	float DoorInterpToTolerance = 0.01f;
 
+public:
+	/**
+	 * How long to disable replication for the last avatar to change the door state
+	 * This prevents the replication from fighting the prediction causing the door to snap back
+	 * Set to 0 to disable clearing the owner (who does not receive replication)
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, AdvancedDisplay, Category="Door Time", meta=(EditCondition="DoorAlphaMode==EAlphaMode::InterpTo||DoorAlphaMode==EAlphaMode::InterpConstant||DoorAlphaMode==EAlphaMode::Disabled", EditConditionHides, ClampMin="0", UIMin="0", UIMax="3", Delta="0.05", ForceUnits="seconds"))
+	float LastAvatarReplicationExpirationTime = 2.5f;
+
+	FTimerHandle LastAvatarReplicationTimerHandle;
+	
 public:
 	/** If true, don't notify on dedicated server -- used for VFX/SFX only */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Notify")
@@ -592,11 +611,11 @@ public:
 public:
 	/** How long to wait before interaction since the door was last in motion (opening or closing, i.e. recently interacted with) */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Properties")
-	float MotionCooldown = 0.2f;
+	float MotionCooldown = 0.1f;
 
 	/** How long to wait before interaction since the door entered a stationary state (open or closed) after being in motion */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Door Properties")
-	float StationaryCooldown = 0.3f;
+	float StationaryCooldown = 0.1f;
 
 	UFUNCTION()
 	virtual void OnStationaryCooldownFinished();

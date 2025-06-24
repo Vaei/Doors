@@ -242,10 +242,13 @@ void ADoor::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifet
 	SharedParams.bIsPushBased = true;
 	SharedParams.Condition = COND_None;
 	
-	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, RepDoorState, SharedParams);
 	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, DoorAccess, SharedParams);
 	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, DoorOpenDirection, SharedParams);
 	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, DoorOpenMotion, SharedParams);
+
+	// We make the LastAvatar the owner for a short time so they don't fight the prediction
+	SharedParams.Condition = COND_SkipOwner;
+	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, RepDoorState, SharedParams);
 }
 
 // -------------------------------------------------------------
@@ -253,6 +256,8 @@ void ADoor::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifet
 
 void ADoor::OnRep_DoorState()
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE(ADoor::OnRep_DoorState);
+	
 	EDoorState NewDoorState;
 	EDoorDirection NewDoorDirection;
 	UDoorStatics::UnpackDoorState(RepDoorState, NewDoorState, NewDoorDirection);
@@ -279,6 +284,11 @@ void ADoor::SetDoorStateReplicationEnabled(bool bEnabled, bool bReplicateNow)
 	}
 }
 
+float ADoor::GetLastAvatarReplicationExpirationTime_Implementation() const
+{
+	return LastAvatarReplicationExpirationTime;
+}
+
 void ADoor::GetRepDoorState(EDoorState& OutDoorState, EDoorDirection& OutDoorDirection) const
 {
 	UDoorStatics::UnpackDoorState(RepDoorState, OutDoorState, OutDoorDirection);
@@ -303,6 +313,32 @@ void ADoor::OnDoorStateChanged(EDoorState OldDoorState, EDoorState NewDoorState,
 		*UDoorStatics::DoorStateDirectionToString(OldDoorState, OldDoorDirection),
 		*UDoorStatics::DoorStateDirectionToString(NewDoorState, NewDoorDirection));
 	
+	// Update the last time the door state changed
+	LastDoorStateChangeTime = GetWorld()->GetTimeSeconds();
+
+	// Update the last avatar
+	LastAvatar = Avatar;
+	if (HasAuthority() && IsValid(Avatar))
+	{
+		// We make the LastAvatar the owner for a short time so their replication doesn't fight the prediction
+		SetOwner(Avatar);
+
+		// Clear the LastAvatar after a short time
+		const float ReplicationExpirationTime = GetLastAvatarReplicationExpirationTime();
+		if (ReplicationExpirationTime > 0.f)
+		{
+			// Clear in-progress timer
+			GetWorldTimerManager().ClearTimer(LastAvatarReplicationTimerHandle);
+		
+			const FTimerDelegate TimerDelegate = FTimerDelegate::CreateWeakLambda(this, [this]
+			{
+				LastAvatar = nullptr;
+				SetOwner(nullptr);
+			});
+			GetWorldTimerManager().SetTimer(LastAvatarReplicationTimerHandle, TimerDelegate, ReplicationExpirationTime, false);
+		}
+	}
+
 	// Update door access
 	if (bHasPendingDoorAccess)
 	{
@@ -410,11 +446,6 @@ void ADoor::OnDoorFinishedOpening(bool bClientSimulation)
 {
 	if (ShouldAutoDisableTickState()) { SetActorTickEnabled(false); }
 
-	if (bClientSimulation && IsDoorStationary())
-	{
-		return;
-	}
-	
 	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorFinishedOpening: %s"), *GetRoleString(), *GetNameSafe(this));
 
 	LastStationaryTime = GetWorld()->GetTimeSeconds();
@@ -437,11 +468,6 @@ void ADoor::OnDoorFinishedClosing(bool bClientSimulation)
 {
 	if (ShouldAutoDisableTickState()) { SetActorTickEnabled(false); }
 
-	if (bClientSimulation && IsDoorStationary())
-	{
-		return;
-	}
-	
 	UE_LOG(LogDoors, Verbose, TEXT("%s ADoor::OnDoorFinishedClosing: %s"), *GetRoleString(), *GetNameSafe(this));
 	
 	LastStationaryTime = GetWorld()->GetTimeSeconds();
