@@ -26,4 +26,6 @@ void FDoorCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 	DetailBuilder.EditCategory(TEXT("Door Notify"), FText::GetEmpty(), ECategoryPriority::Important);
 	DetailBuilder.EditCategory(TEXT("DoorPreview"), FText::GetEmpty(), ECategoryPriority::Important);
 	DetailBuilder.EditCategory(TEXT("Door Preview"), FText::GetEmpty(), ECategoryPriority::Important);
+	DetailBuilder.EditCategory(TEXT("DoorVisuals"), FText::GetEmpty(), ECategoryPriority::Important);
+	DetailBuilder.EditCategory(TEXT("Door Visuals"), FText::GetEmpty(), ECategoryPriority::Important);
 }
