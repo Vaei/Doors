@@ -18,3 +18,11 @@
 > [!TIP]
 > Suitable for both singleplayer and multiplayer games
 > <br>Supports UE5.4+
+
+## Changelog
+
+### 1.0.1
+* Null check door sprite
+* Make cvars static
+* Fix access specifiers
+* Add missing includes
