@@ -10,13 +10,16 @@
 #include "Engine/World.h"
 #include "TimerManager.h"
 #include "System/DoorVersioning.h"
+#include "DoorTags.h"
 
 #if WITH_EDITORONLY_DATA
 #include "Visualizers/DoorEditorVisualizer.h"
 #include "Visualizers/DoorSpriteWidgetComponent.h"
 #endif
 
-#include "DoorTags.h"
+#if UE_ENABLE_DEBUG_DRAWING
+#include "DrawDebugHelpers.h"
+#endif
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(Door)
 

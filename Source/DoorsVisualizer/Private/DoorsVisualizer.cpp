@@ -6,6 +6,7 @@
 #include "DoorVisualizer.h"
 #include "UnrealEdGlobals.h"
 #include "Editor/UnrealEdEngine.h"
+#include "Engine/Texture2D.h"
 
 #define LOCTEXT_NAMESPACE "FDoorsVisualizerModule"
 

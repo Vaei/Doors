@@ -6,6 +6,10 @@
 #include "Door.h"
 #include "Visualizers/DoorEditorVisualizer.h"
 #include "DoorStatics.h"
+#include "PrimitiveDrawingUtils.h"
+#include "PrimitiveDrawInterface.h"
+#include "TextureResource.h"
+#include "Engine/Texture2D.h"
 
 UTexture2D* FDoorVisualizer::ClosedOutwardSprite = nullptr;
 UTexture2D* FDoorVisualizer::ClosedInwardSprite = nullptr;

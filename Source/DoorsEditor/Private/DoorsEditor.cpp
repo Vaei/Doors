@@ -4,6 +4,7 @@
 
 #include "Door.h"
 #include "DoorCustomization.h"
+#include "PropertyEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "FDoorsEditorModule"
 
