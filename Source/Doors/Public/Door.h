@@ -78,7 +78,10 @@ public:
 public:
 	ADoor(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
+protected:
 	virtual void BeginPlay() override;
+	
+public:
 	virtual void Tick(float DeltaTime) override;
 
 	UFUNCTION(BlueprintNativeEvent, Category=Door)

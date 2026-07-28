@@ -63,10 +63,10 @@ public:
 public:
 	UDoorFilter_DoorState(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
+protected:
 	/** Called against every target data to determine if the target should be filtered out */
 	virtual bool ShouldFilterTarget(const FTargetingRequestHandle& TargetingHandle, const FTargetingDefaultResultData& TargetData) const override;
 
-protected:
 	// Helper for filtering values based on filter type
 	template<typename T>
 	bool IsValueFiltered(EDoorFilterType FilterType, T Value, const TArray<T>& FilterList) const;
