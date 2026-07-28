@@ -27,7 +27,7 @@ namespace DoorCVars
 {
 #if WITH_EDITORONLY_DATA
 	static bool bShowDoorStateDuringPIE = true;
-	FAutoConsoleVariableRef CVarShowDoorStateDuringPIE(
+	static FAutoConsoleVariableRef CVarShowDoorStateDuringPIE(
 		TEXT("p.Door.ShowDoorStateDuringPIE"),
 		bShowDoorStateDuringPIE,
 		TEXT("If true, draw sprites showing the door state during PIE\n"),
@@ -36,7 +36,7 @@ namespace DoorCVars
 
 #if UE_ENABLE_DEBUG_DRAWING && WITH_EDITOR
 	static bool bDoorDebugServer = false;
-	FAutoConsoleVariableRef CVarDoorDebugServer(
+	static FAutoConsoleVariableRef CVarDoorDebugServer(
 		TEXT("p.Door.DebugServer"),
 		bDoorDebugServer,
 		TEXT("Draw door bounds for the server during PIE.\n"),
