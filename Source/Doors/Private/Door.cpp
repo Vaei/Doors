@@ -78,9 +78,9 @@ ADoor::ADoor(const FObjectInitializer& ObjectInitializer)
 	DoorVisualizer = CreateEditorOnlyDefaultSubobject<UDoorEditorVisualizer>(TEXT("DoorVisualizer"));
 
 	// Draw PIE visualization
+	DoorSprite = CreateEditorOnlyDefaultSubobject<UDoorSpriteWidgetComponent>(TEXT("DoorSprite"));
 	if (DoorSprite)
 	{
-		DoorSprite = CreateEditorOnlyDefaultSubobject<UDoorSpriteWidgetComponent>(TEXT("DoorSprite"));
 		DoorSprite->SetGenerateOverlapEvents(false);
 		DoorSprite->SetCollisionProfileName(TEXT("NoCollision"));
 		DoorSprite->SetupAttachment(RootComponent);

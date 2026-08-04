@@ -21,6 +21,9 @@
 
 ## Changelog
 
+### 1.0.2
+* Fix door sprite creation oversight
+
 ### 1.0.1
 * Null check door sprite
 * Make cvars static
